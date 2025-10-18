@@ -7,7 +7,7 @@ import logging
 import os
 from typing import Dict, List
 
-import openai
+from openai import OpenAI
 import requests
 import yfinance as yf
 
@@ -224,14 +224,14 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
     result["buzz_factor"] = buzz_factor
 
     try:
-        openai.api_key = openai_api_key
+        client = OpenAI(api_key=openai_api_key)
         sentiment_prompt = (
             "You are a financial news analyst. Analyze the sentiment of the following news "
             f"headlines about {stock_symbol}. Provide a JSON object with keys 'sentiment_score' (a number between -1 and 1) "
             "and 'narrative' (a short sentence summarizing the sentiment). Headlines: "
             + json.dumps(headlines)
         )
-        completion = openai.ChatCompletion.create(
+        completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You analyze financial news sentiment."},
@@ -240,7 +240,8 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
             temperature=0.2,
             max_tokens=250,
         )
-        content = completion.choices[0].message.get("content", "{}")
+        message = completion.choices[0].message
+        content = message.content if message else "{}"
         sentiment_data = json.loads(content)
         sentiment_score = float(sentiment_data.get("sentiment_score", 0))
         narrative = str(sentiment_data.get("narrative", "No summary provided."))
