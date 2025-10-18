@@ -63,6 +63,23 @@ The project requires API keys to function.
 
 ## Usage
 
+### Web Interface (Recommended)
+
+Run the Streamlit web interface for a beautiful, interactive experience:
+
+```sh
+py -m streamlit run streamlit_app.py
+```
+
+The interface features:
+- Hebrew RTL (right-to-left) support
+- Card-based layout sorted by confidence score
+- Interactive legend explaining all metrics
+- Direct links to news sources
+- Expandable detailed analysis
+
+### Command Line Interface
+
 Run the main script from the command line and provide a comma-separated list of stock symbols using the `--stocks` argument.
 
 **Example:**

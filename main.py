@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import re
 import sys
 import time
@@ -55,6 +56,7 @@ def _wait_for_run_completion(
                     name = getattr(function_meta, "name", "") if function_meta else ""
                     arguments = getattr(function_meta, "arguments", "") if function_meta else ""
                     LOGGER.info("Run %s requested tool %s", run_id, name)
+                    # When the assistant requests market intel, delegate the call to the appropriate data tool.
                     handler = tool_dispatch.get(name)
                     if handler is None:
                         LOGGER.error("No handler registered for tool %s", name)
@@ -117,14 +119,20 @@ def _extract_confidence_score(raw_response: str) -> Optional[float]:
     if not raw_response:
         return None
 
-    match = re.search(r"confidence\s*score[^0-9]*([0-9]+(?:\.[0-9]+)?)", raw_response, re.IGNORECASE)
-    if not match:
-        return None
+    patterns = [
+        r"confidence\s*score[^0-9]*([0-9]+(?:\.[0-9]+)?)",
+        r"ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)",
+        r"([0-9]+(?:\.[0-9]+)?)\s*/\s*10",
+    ]
 
-    try:
-        return float(match.group(1))
-    except (TypeError, ValueError):
-        return None
+    for pattern in patterns:
+        match = re.search(pattern, raw_response, re.IGNORECASE)
+        if match:
+            try:
+                return float(match.group(1))
+            except (TypeError, ValueError):
+                continue
+    return None
 
 
 def _confidence_sort_key(result: Dict[str, object]) -> tuple[bool, float]:
@@ -133,6 +141,99 @@ def _confidence_sort_key(result: Dict[str, object]) -> tuple[bool, float]:
     if isinstance(score, (int, float)):
         return True, float(score)
     return False, float("-inf")
+
+
+def _collect_tool_insights(symbol: str) -> Dict[str, Dict[str, object]]:
+    """Collects raw outputs from the registered tools so UIs can surface structured insights."""
+    insights: Dict[str, Dict[str, object]] = {}
+    for key, tool in (
+        ("news", NewsAndBuzzTool),
+        ("technicals", VolumeAndTechnicalsTool),
+        ("events", CorporateEventsTool),
+    ):
+        try:
+            insights[key] = tool(symbol)
+        except Exception as exc:  # pragma: no cover - best-effort logging
+            LOGGER.warning("Failed to gather %s insights for %s: %s", key, symbol, exc)
+            insights[key] = {"error": str(exc)}
+    return insights
+
+
+def run_stock_analysis(
+    symbols: List[str],
+    client: Optional[OpenAI] = None,
+) -> List[Dict[str, object]]:
+    """Runs the assistant workflow for the requested symbols and returns sorted results."""
+    if not symbols:
+        return []
+
+    if client is None:
+        # Always read from .env file directly to bypass stale Windows environment variables
+        api_key = None
+        env_path = os.path.join(os.path.dirname(__file__), ".env")
+        if os.path.isfile(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("OPENAI_API_KEY="):
+                        api_key = line.split("=", 1)[1].strip()
+                        break
+        if not api_key:
+            api_key = os.getenv("OPENAI_API_KEY")
+        local_client = OpenAI(api_key=api_key) if api_key else OpenAI()
+    else:
+        local_client = client
+    assistant = create_assistant(local_client)
+    tool_dispatch = {
+        "NewsAndBuzzTool": NewsAndBuzzTool,
+        "VolumeAndTechnicalsTool": VolumeAndTechnicalsTool,
+        "CorporateEventsTool": CorporateEventsTool,
+    }
+
+    results: List[Dict[str, object]] = []
+    for symbol in symbols:
+        entry: Dict[str, object] = {"symbol": symbol}
+        LOGGER.info("Analyzing %s", symbol)
+        try:
+            thread = local_client.beta.threads.create()
+
+            local_client.beta.threads.messages.create(
+                thread_id=thread.id,
+                role="user",
+                content=f"Please analyze the stock: {symbol}",
+            )
+
+            run = local_client.beta.threads.runs.create(
+                thread_id=thread.id,
+                assistant_id=assistant.id,
+            )
+
+            status = _wait_for_run_completion(local_client, thread.id, run.id, tool_dispatch)
+            if status != "completed":
+                entry["error"] = f"Assistant run ended with status: {status}"
+            else:
+                messages = local_client.beta.threads.messages.list(thread_id=thread.id)
+                response_text = _render_assistant_response(messages.data)
+                entry["response_text"] = response_text
+                entry["confidence_score"] = _extract_confidence_score(response_text)
+        except Exception as exc:  # pragma: no cover - best-effort logging
+            LOGGER.exception("An error occurred while processing %s", symbol)
+            entry["error"] = str(exc)
+
+        if "error" not in entry:
+            entry["tool_insights"] = _collect_tool_insights(symbol)
+        else:
+            entry["tool_insights"] = {}
+
+        results.append(entry)
+
+    for result in results:
+        if "confidence_score" not in result:
+            response_text = result.get("response_text") or ""
+            result["confidence_score"] = _extract_confidence_score(response_text)
+
+    results.sort(key=_confidence_sort_key, reverse=True)
+    return results
 
 
 def main() -> int:
@@ -150,68 +251,36 @@ def main() -> int:
         print("No valid stock symbols were provided. Please pass a comma-separated list via --stocks.")
         return 1
 
-    client = OpenAI()
-    assistant = create_assistant(client)
-    tool_dispatch = {
-        "NewsAndBuzzTool": NewsAndBuzzTool,
-        "VolumeAndTechnicalsTool": VolumeAndTechnicalsTool,
-        "CorporateEventsTool": CorporateEventsTool,
-    }
+    results = run_stock_analysis(symbols)
+    if not results:
+        print("No analysis results were generated.")
+        return 1
 
     exit_code = 0
-    results: List[Dict[str, object]] = []
-    for symbol in symbols:
-        print(f"\n=== Analyzing {symbol} ===")
-        try:
-            thread = client.beta.threads.create()
-
-            client.beta.threads.messages.create(
-                thread_id=thread.id,
-                role="user",
-                content=f"Please analyze the stock: {symbol}",
-            )
-
-            run = client.beta.threads.runs.create(
-                thread_id=thread.id,
-                assistant_id=assistant.id,
-            )
-
-            status = _wait_for_run_completion(client, thread.id, run.id, tool_dispatch)
-            if status != "completed":
-                print(f"Assistant run for {symbol} ended with status: {status}")
-                exit_code = 1
-                continue
-
-            messages = client.beta.threads.messages.list(thread_id=thread.id)
-            response_text = _render_assistant_response(messages.data)
-            results.append({"symbol": symbol, "response_text": response_text})
-        except Exception as exc:  # pragma: no cover - best-effort logging
-            print(f"An error occurred while processing {symbol}: {exc}")
-            exit_code = 1
-
-    if results:
-        for result in results:
-            result["confidence_score"] = _extract_confidence_score(result.get("response_text") or "")
-
-        results.sort(key=_confidence_sort_key, reverse=True)
-
-        print("\n=== Stock Analysis Results (sorted by confidence) ===")
-        for result in results:
-            symbol = result["symbol"]
-            response_text = (result.get("response_text") or "").strip() or "(No assistant response was generated.)"
-            confidence_score = result.get("confidence_score")
-
+    print("\n=== Stock Analysis Results (sorted by confidence) ===")
+    for result in results:
+        symbol = result["symbol"]
+        error_message = result.get("error")
+        if error_message:
             print(f"\n--- {symbol} ---")
-            if confidence_score is not None:
-                numeric_score = float(confidence_score)
-                if numeric_score.is_integer():
-                    score_display = int(numeric_score)
-                else:
-                    score_display = round(numeric_score, 2)
-                print(f"Confidence Score: {score_display}")
+            print(f"Analysis failed: {error_message}")
+            exit_code = 1
+            continue
+
+        response_text = (result.get("response_text") or "").strip() or "(No assistant response was generated.)"
+        confidence_score = result.get("confidence_score")
+
+        print(f"\n--- {symbol} ---")
+        if confidence_score is not None:
+            numeric_score = float(confidence_score)
+            if numeric_score.is_integer():
+                score_display = int(numeric_score)
             else:
-                print("Confidence Score: Not found")
-            print(response_text)
+                score_display = round(numeric_score, 2)
+            print(f"Confidence Score: {score_display}")
+        else:
+            print("Confidence Score: Not found")
+        print(response_text)
 
     return exit_code
 
