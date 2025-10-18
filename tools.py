@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Dict
+import os
+from typing import Dict, List
 
+import openai
+import requests
 import yfinance as yf
 
 
@@ -139,3 +143,94 @@ def VolumeAndTechnicalsTool(stock_symbol: str) -> Dict[str, object]:
         )
 
     return result
+
+
+def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
+    """Fetches recent news articles for a given stock symbol, analyzes their sentiment, and calculates the media buzz factor."""
+
+    result: Dict[str, object] = {
+        "sentiment_score": None,
+        "narrative": "Insufficient data",
+        "buzz_factor": 0.0,
+        "top_headlines": [],
+    }
+
+    if not stock_symbol or not stock_symbol.strip():
+        LOGGER.warning("NewsAndBuzzTool received an empty stock symbol.")
+        return result
+
+    news_api_key = os.getenv("NEWSAPI_API_KEY") or os.getenv("NEWS_API_KEY")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+
+    if not news_api_key:
+        LOGGER.warning("NewsAndBuzzTool cannot run without NEWSAPI_API_KEY.")
+        return result
+
+    if not openai_api_key:
+        LOGGER.warning("NewsAndBuzzTool cannot run without OPENAI_API_KEY.")
+        return result
+
+    stock_symbol = stock_symbol.strip()
+
+    try:
+        response = requests.get(
+            "https://newsapi.org/v2/everything",
+            params={
+                "q": stock_symbol,
+                "language": "en",
+                "sortBy": "publishedAt",
+                "pageSize": 10,
+            },
+            headers={"Authorization": news_api_key},
+            timeout=10,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        articles: List[Dict[str, object]] = payload.get("articles", []) if isinstance(payload, dict) else []
+    except (requests.RequestException, json.JSONDecodeError) as exc:
+        LOGGER.warning("Failed to fetch news for %s: %s", stock_symbol, exc)
+        return result
+
+    headlines = [
+        article.get("title")
+        for article in articles
+        if isinstance(article, dict) and article.get("title")
+    ][:5]
+
+    if not headlines:
+        return result
+
+    result["top_headlines"] = headlines
+    buzz_factor = round(len(articles) / 4.0, 2)
+    result["buzz_factor"] = buzz_factor
+
+    try:
+        openai.api_key = openai_api_key
+        sentiment_prompt = (
+            "You are a financial news analyst. Analyze the sentiment of the following news "
+            f"headlines about {stock_symbol}. Provide a JSON object with keys 'sentiment_score' (a number between -1 and 1) "
+            "and 'narrative' (a short sentence summarizing the sentiment). Headlines: "
+            + json.dumps(headlines)
+        )
+        completion = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You analyze financial news sentiment."},
+                {"role": "user", "content": sentiment_prompt},
+            ],
+            temperature=0.2,
+            max_tokens=250,
+        )
+        content = completion.choices[0].message.get("content", "{}")
+        sentiment_data = json.loads(content)
+        sentiment_score = float(sentiment_data.get("sentiment_score", 0))
+        narrative = str(sentiment_data.get("narrative", "No summary provided."))
+        result["sentiment_score"] = sentiment_score
+        result["narrative"] = narrative
+    except (KeyError, ValueError, json.JSONDecodeError, TypeError) as exc:
+        LOGGER.warning("Failed to parse sentiment response for %s: %s", stock_symbol, exc)
+    except Exception as exc:  # pragma: no cover - best-effort logging
+        LOGGER.warning("OpenAI sentiment analysis failed for %s: %s", stock_symbol, exc)
+
+    return result
+
