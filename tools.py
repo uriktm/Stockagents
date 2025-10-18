@@ -15,6 +15,25 @@ import yfinance as yf
 LOGGER = logging.getLogger(__name__)
 
 
+def _load_local_env() -> None:
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if not os.path.isfile(env_path):
+        return
+    try:
+        with open(env_path, "r", encoding="utf-8") as env_file:
+            for raw_line in env_file:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip())
+    except OSError:
+        LOGGER.warning("Failed to read local .env file.")
+
+
+_load_local_env()
+
+
 def CorporateEventsTool(stock_symbol: str) -> Dict[str, object]:
     """Checks for upcoming corporate events for a given stock symbol, such as earnings report dates. Returns the date of the next earnings report if available."""
     result: Dict[str, object] = {
