@@ -26,6 +26,13 @@ def run_all_tests():
     print("\n--- Testing NewsAndBuzzTool ---")
     aapl_news = NewsAndBuzzTool('AAPL')
     print(f"News for AAPL: {aapl_news}")
+    sources = aapl_news.get("source_breakdown")
+    if sources:
+        print("Sources breakdown:")
+        for item in sources:
+            print(f"  - {item.get('source')}: {item.get('count')} articles")
+    else:
+        print("No additional news sources were returned (fallback to NewsAPI only).")
 
 # הרצת הבדיקות כאשר מריצים את הקובץ ישירות
 if __name__ == "__main__":

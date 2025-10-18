@@ -185,7 +185,17 @@ def VolumeAndTechnicalsTool(stock_symbol: str) -> Dict[str, object]:
 
 
 def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
-    """Fetches recent news articles for a given stock symbol, analyzes their sentiment, and calculates the media buzz factor. Returns sentiment_score (-1 to 1), narrative (summary text), buzz_factor (media attention multiplier), top_headlines (list of titles), and article_links (list of dicts with 'title' and 'url' keys for source attribution)."""
+    """Aggregates recent news for a stock symbol from multiple financial feeds, analyzes sentiment, and measures media buzz.
+
+    Returns a dictionary containing:
+    - sentiment_score (float between -1 and 1)
+    - narrative (short sentiment summary)
+    - buzz_factor (media attention multiplier)
+    - top_headlines (list of titles)
+    - article_links (list of dicts with 'title', 'url', and 'source')
+    - source_count (int) and sources_used (list of source labels)
+    - source_breakdown (list of dicts describing article counts per source)
+    """
 
     result: Dict[str, object] = {
         "sentiment_score": None,
@@ -193,6 +203,9 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
         "buzz_factor": 0.0,
         "top_headlines": [],
         "article_links": [],
+        "source_count": 0,
+        "sources_used": [],
+        "source_breakdown": [],
     }
 
     if not stock_symbol or not stock_symbol.strip():
@@ -201,99 +214,209 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
 
     # Always reload from .env to bypass stale environment cache
     _load_local_env()
-    
+
     news_api_key = os.getenv("NEWSAPI_API_KEY") or os.getenv("NEWS_API_KEY")
+    fmp_api_key = os.getenv("FMP_API_KEY")
     openai_api_key = os.getenv("OPENAI_API_KEY")
 
-    if not news_api_key:
-        LOGGER.warning("NewsAndBuzzTool cannot run without NEWSAPI_API_KEY.")
+    if not news_api_key and not fmp_api_key:
+        LOGGER.warning("NewsAndBuzzTool requires at least one news API key (NewsAPI or FMP_API_KEY).")
         return result
 
     if not openai_api_key:
         LOGGER.warning("NewsAndBuzzTool cannot run without OPENAI_API_KEY.")
         return result
 
-    stock_symbol = stock_symbol.strip()
-    
-    # Try to get company name from yfinance for better news search
+    stock_symbol = stock_symbol.strip().upper()
+
     company_name = None
     try:
         ticker = yf.Ticker(stock_symbol)
         info = ticker.info
         if info:
-            company_name = info.get("longName") or info.get("shortName")
+            raw_name = info.get("longName") or info.get("shortName")
+            if raw_name:
+                company_name = raw_name.replace('"', "").strip()
     except Exception:
         pass
-    
-    # Build search query with financial context
-    if company_name:
-        search_query = f'"{company_name}" OR {stock_symbol} (stock OR shares OR company OR earnings)'
-    else:
-        search_query = f'{stock_symbol} (stock OR shares OR company OR earnings OR ticker)'
 
-    try:
-        # Pull fresh media coverage so we can understand the narrative influencing investor sentiment.
-        response = requests.get(
-            "https://newsapi.org/v2/everything",
-            params={
-                "q": search_query,
-                "language": "en",
-                "sortBy": "publishedAt",
-                "pageSize": 10,
-                "domains": "bloomberg.com,reuters.com,cnbc.com,marketwatch.com,wsj.com,fool.com,seekingalpha.com,benzinga.com,yahoo.com,finance.yahoo.com",
-            },
-            headers={"Authorization": news_api_key},
-            timeout=10,
+    suffixes = (
+        " inc.",
+        " inc",
+        " corporation",
+        " corp.",
+        " corp",
+        " company",
+        " co.",
+        " co",
+        " ltd.",
+        " ltd",
+    )
+
+    primary_company_name = company_name
+    short_company_name = None
+    if company_name:
+        candidate = company_name
+        lower_candidate = candidate.lower()
+        for suffix in suffixes:
+            if lower_candidate.endswith(suffix):
+                candidate = candidate[: -len(suffix)].strip()
+                lower_candidate = candidate.lower()
+        if candidate and candidate.lower() != company_name.lower():
+            short_company_name = candidate
+
+    search_terms = [stock_symbol, f'"{stock_symbol}"']
+    if company_name:
+        search_terms.append(f'"{company_name}"')
+    if short_company_name:
+        search_terms.append(f'"{short_company_name}"')
+
+    seen_terms = set()
+    unique_terms = []
+    for term in search_terms:
+        if term and term not in seen_terms:
+            unique_terms.append(term)
+            seen_terms.add(term)
+    search_query = f"({' OR '.join(unique_terms)})"
+
+    combined_articles: List[Dict[str, object]] = []
+    sources_used: Dict[str, int] = {}
+
+    def add_article(raw_article: Dict[str, object], source_label: str) -> None:
+        if not isinstance(raw_article, dict):
+            return
+        title = (raw_article.get("title") or "").strip()
+        url = (raw_article.get("url") or "").strip()
+        if not title:
+            return
+        description = raw_article.get("description") or raw_article.get("text") or ""
+        content = raw_article.get("content") or raw_article.get("text") or ""
+        published_at = raw_article.get("publishedAt") or raw_article.get("publishedDate")
+        dedupe_key = url.lower() if url else title.lower()
+        if any(article.get("_dedupe_key") == dedupe_key for article in combined_articles):
+            return
+        combined_articles.append(
+            {
+                "title": title,
+                "url": url,
+                "description": description,
+                "content": content,
+                "source": source_label,
+                "publishedAt": published_at,
+                "_dedupe_key": dedupe_key,
+            }
         )
-        response.raise_for_status()
-        payload = response.json()
-        articles: List[Dict[str, object]] = payload.get("articles", []) if isinstance(payload, dict) else []
-    except (requests.RequestException, json.JSONDecodeError) as exc:
-        LOGGER.warning("Failed to fetch news for %s: %s", stock_symbol, exc)
+        sources_used[source_label] = sources_used.get(source_label, 0) + 1
+
+    if news_api_key:
+        try:
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                params={
+                    "q": search_query,
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 15,
+                    "domains": "bloomberg.com,reuters.com,cnbc.com,marketwatch.com,wsj.com,fool.com,seekingalpha.com,benzinga.com,yahoo.com,finance.yahoo.com",
+                    "searchIn": "title,description",
+                },
+                headers={"Authorization": news_api_key},
+                timeout=10,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            articles = payload.get("articles", []) if isinstance(payload, dict) else []
+            for article in articles:
+                add_article(article, "NewsAPI")
+        except (requests.RequestException, json.JSONDecodeError) as exc:
+            LOGGER.warning("Failed to fetch NewsAPI articles for %s: %s", stock_symbol, exc)
+
+    if fmp_api_key:
+        fmp_endpoints = (
+            "https://financialmodelingprep.com/api/v4/stock_news",
+            "https://financialmodelingprep.com/api/v3/stock_news",
+        )
+        for endpoint in fmp_endpoints:
+            try:
+                response = requests.get(
+                    endpoint,
+                    params={"tickers": stock_symbol, "limit": 25, "apikey": fmp_api_key},
+                    timeout=10,
+                )
+                if response.status_code == 403:
+                    text = response.text.lower()
+                    if "legacy endpoint" in text or "invalid api key" in text:
+                        LOGGER.info(
+                            "FMP endpoint %s not available for the current plan; skipping.",
+                            endpoint,
+                        )
+                        continue
+                response.raise_for_status()
+                payload = response.json()
+                if isinstance(payload, dict):
+                    articles = payload.get("data") or payload.get("news") or []
+                else:
+                    articles = payload
+                if not isinstance(articles, list):
+                    articles = []
+                for article in articles:
+                    add_article(article, "FMP")
+                if articles:
+                    break
+            except (requests.RequestException, json.JSONDecodeError) as exc:
+                LOGGER.warning("Failed to fetch FMP articles for %s from %s: %s", stock_symbol, endpoint, exc)
+
+    if not combined_articles:
         return result
 
-    # Filter articles to ensure relevance (title or description must contain stock symbol or company name)
+    company_aliases = {stock_symbol.lower()}
+    if primary_company_name:
+        company_aliases.add(primary_company_name.lower())
+    if short_company_name:
+        company_aliases.add(short_company_name.lower())
+
     def is_relevant(article: Dict[str, object]) -> bool:
-        if not isinstance(article, dict):
-            return False
         title = (article.get("title") or "").lower()
         description = (article.get("description") or "").lower()
         content = (article.get("content") or "").lower()
         combined = f"{title} {description} {content}"
-        
-        # Check if symbol or company name appears in content
-        if stock_symbol.lower() in combined:
-            return True
-        if company_name and company_name.lower() in combined:
-            return True
-        # Check for financial keywords to ensure it's about stocks
-        financial_keywords = ["stock", "share", "trading", "market", "investor", "earnings", "revenue", "price"]
-        return any(keyword in combined for keyword in financial_keywords)
-    
-    filtered_articles = [article for article in articles if is_relevant(article)][:10]
+        return any(alias in combined for alias in company_aliases if alias)
 
-    headlines = [
-        article.get("title")
-        for article in filtered_articles
-        if isinstance(article, dict) and article.get("title")
-    ][:5]
-    
-    article_links = [
-        {"title": article.get("title"), "url": article.get("url")}
-        for article in filtered_articles
-        if isinstance(article, dict) and article.get("title") and article.get("url")
-    ][:5]
+    filtered_articles = [article for article in combined_articles if is_relevant(article)]
 
-    if not headlines:
+    if not filtered_articles:
         return result
+
+    # Sort by publish date (newest first) when available
+    filtered_articles.sort(
+        key=lambda a: a.get("publishedAt") or "",
+        reverse=True,
+    )
+
+    headlines = [article["title"] for article in filtered_articles[:5]]
+    article_links = [
+        {"title": article["title"], "url": article["url"], "source": article["source"]}
+        for article in filtered_articles[:5]
+        if article.get("url")
+    ]
 
     result["top_headlines"] = headlines
     result["article_links"] = article_links
+
     buzz_factor = round(len(filtered_articles) / 4.0, 2)
     result["buzz_factor"] = buzz_factor
 
+    source_breakdown = [
+        {"source": source, "count": count}
+        for source, count in sources_used.items()
+        if count > 0
+    ]
+    source_breakdown.sort(key=lambda item: (-item["count"], item["source"]))
+    result["source_breakdown"] = source_breakdown
+    result["sources_used"] = [item["source"] for item in source_breakdown]
+    result["source_count"] = len(result["sources_used"])
+
     try:
-        # Summarize the tone of the headlines so portfolio managers have an at-a-glance sentiment read.
         client = OpenAI(api_key=openai_api_key)
         sentiment_prompt = (
             "You are a financial news analyst. Analyze the sentiment of the following news "
@@ -322,6 +445,10 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
         LOGGER.warning("Failed to parse sentiment response for %s: %s", stock_symbol, exc)
     except Exception as exc:  # pragma: no cover - best-effort logging
         LOGGER.warning("OpenAI sentiment analysis failed for %s: %s", stock_symbol, exc)
+
+    # Remove helper key before returning
+    for article in combined_articles:
+        article.pop("_dedupe_key", None)
 
     return result
 

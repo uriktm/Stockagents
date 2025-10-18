@@ -1,5 +1,7 @@
 import html
+from datetime import datetime, time
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 import streamlit as st
 
@@ -40,6 +42,32 @@ def _extract_forecast(text: str) -> str:
         if line and not line.startswith("#") and len(line) > 10:
             return line
     return "לא נמצאה תחזית מפורשת."
+
+
+def _market_session_status() -> tuple[str, str]:
+    """Determines the current US market session (Eastern Time)."""
+    try:
+        eastern_now = datetime.now(ZoneInfo("America/New_York"))
+    except Exception:
+        return "סטטוס שוק: לא זמין", "#6b7280"
+
+    weekday = eastern_now.weekday()
+    current_time = eastern_now.time()
+
+    pre_market_start = time(4, 0)
+    market_open = time(9, 30)
+    market_close = time(16, 0)
+    after_hours_end = time(20, 0)
+
+    if weekday >= 5:
+        return "סטטוס שוק: סגור (סוף שבוע)", "#6b7280"
+    if pre_market_start <= current_time < market_open:
+        return "סטטוס שוק: פרה-מרקט פתוח", "#fbbf24"
+    if market_open <= current_time < market_close:
+        return "סטטוס שוק: מסחר פעיל", "#22c55e"
+    if market_close <= current_time < after_hours_end:
+        return "סטטוס שוק: אפטר-מרקט פתוח", "#60a5fa"
+    return "סטטוס שוק: סגור", "#6b7280"
 
 
 def _render_points(title: str, icon: str, points: list[str]) -> str:
@@ -147,7 +175,22 @@ def _build_card(result: dict) -> str:
     narrative = news.get("narrative")
     if isinstance(narrative, str) and narrative and narrative.lower() != "insufficient data":
         news_points.append(f"נרטיב: {narrative}")
-    
+
+    source_breakdown = news.get("source_breakdown") or []
+    source_count = news.get("source_count")
+    if source_breakdown:
+        breakdown_text = ", ".join(
+            f"{html.escape(str(item.get('source', '')))} ({int(item.get('count', 0))})"
+            for item in source_breakdown
+            if item
+        )
+        if isinstance(source_count, int) and source_count > 0:
+            news_points.append(
+                f"מספר מקורות עצמאיים: {source_count} ({breakdown_text})"
+            )
+        else:
+            news_points.append(f"מקורות חדשות: {breakdown_text}")
+
     sentiment_score = news.get("sentiment_score")
     if isinstance(sentiment_score, (int, float)):
         sentiment_text = ""
@@ -179,8 +222,14 @@ def _build_card(result: dict) -> str:
             if isinstance(link_info, dict):
                 title = link_info.get("title", "")
                 url = link_info.get("url", "")
+                source_label = link_info.get("source")
                 if title and url:
-                    news_points.append(f'<a href="{html.escape(url)}" target="_blank" style="color:#60a5fa;">{html.escape(title[:60])}...</a>')
+                    truncated_title = title if len(title) <= 60 else f"{title[:60]}..."
+                    prefix = f"[{source_label}] " if source_label else ""
+                    display_text = html.escape(f"{prefix}{truncated_title}")
+                    news_points.append(
+                        f'<a href="{html.escape(url)}" target="_blank" style="color:#60a5fa;">{display_text}</a>'
+                    )
 
     technical_points: list[str] = []
     signal = technicals.get("technical_signal")
@@ -235,11 +284,13 @@ def _build_card(result: dict) -> str:
         "<div style='background:linear-gradient(135deg,#111827,#0b1120); border:1px solid #1f2937; "
         "border-radius:18px; padding:24px; margin-bottom:24px; direction:rtl; text-align:right;'>"
         "<div style='display:flex; justify-content:space-between; align-items:center; gap:16px; direction:rtl;'>"
-        f"<div style='color:#f9fafb;'>"
+        f"<div style='color:#f9fafb; display:flex; flex-direction:column; gap:10px;'>"
         f"<div style='font-size:26px; font-weight:700; letter-spacing:0.4px;'>{html.escape(symbol)}</div>"
         f"<div style='margin-top:10px;'>{badge_html}</div>"
         f"<div style='font-size:18px; margin-top:8px;'>תחזית: <span style='color:{tone['text_color']}; font-weight:600;'>{forecast_safe}</span></div>"
         "</div>"
+        "<div style='display:flex; flex-direction:column; align-items:center; gap:8px;'>"
+        "<div style='font-size:14px; color:#bfdbfe;'>רמת ביטחון של המודל (1-10)</div>"
         f"<div style='width:130px; height:130px; border-radius:50%; background:{color}; display:flex; flex-direction:column; "
         "justify-content:center; align-items:center; flex-shrink:0;'>"
         f"<div style='font-size:48px; line-height:1; font-weight:900; color:#1a1a1a; margin-bottom:4px;'>{score_display}</div>"
@@ -327,46 +378,109 @@ if "status_message" not in st.session_state:
     st.session_state["status_message"] = ""
 if "status_level" not in st.session_state:
     st.session_state["status_level"] = "info"
+if "show_legend" not in st.session_state:
+    st.session_state["show_legend"] = False
 
 st.title("ממשק ניתוח מניות - Stockagents")
 
-# Legend/Guide expander
-with st.expander("📖 מדריך למדדים ומונחים", expanded=False):
-    st.markdown("""
-    ### מדדי חדשות וסנטימנט
-    - **ציון סנטימנט**: ציון בין -1 ל-1 המבטא את הטון הכללי של החדשות
-        - `-1 עד -0.3`: שלילי מאוד
-        - `-0.3 עד 0`: שלילי קל
-        - `0 עד 0.3`: חיובי קל
-        - `0.3 עד 1`: חיובי מאוד
-    
-    - **Buzz Factor (חשיפה תקשורתית)**: מספר הכתבות ביחס לממוצע
-        - `< 1.0`: פחות כתבות מהרגיל
-        - `1.0 - 2.0`: חשיפה נורמלית
-        - `> 2.0`: חשיפה גבוהה מהרגיל
-    
-    ### מדדים טכניים
-    - **RSI (Relative Strength Index)**: מדד כוח יחסי (0-100)
-        - `< 30`: מצב Oversold (מכירה יתר) - עלולה להיות עלייה
-        - `30-70`: טווח נורמלי
-        - `> 70`: מצב Overbought (קנייה יתר) - עלולה להיות ירידה
-    
-    - **MACD Crossover**: אות מומנטום
-        - **Bullish Crossover**: אות חיובי - מומנטום עולה
-        - **Bearish Crossover**: אות שלילי - מומנטום יורד
-        - **No Crossover**: אין שינוי משמעותי במומנטום
-    
-    - **נפח מסחר**: יחס הנפח ביום זה לעומת הממוצע
-        - `< 1.0`: נפח נמוך מהרגיל
-        - `1.0 - 1.5`: נפח נורמלי
-        - `> 2.0`: נפח גבוה מאוד - עניין מוגבר במניה
-    
-    ### ציון ביטחון
-    - **1-3**: ביטחון נמוך מאוד
-    - **4-6**: ביטחון בינוני
-    - **7-8**: ביטחון גבוה
-    - **9-10**: ביטחון גבוה מאוד
-    """)
+status_text, status_color = _market_session_status()
+st.markdown(
+    f"<div style='margin-bottom:16px; display:inline-block; padding:6px 14px; border-radius:999px; background:{status_color}; color:#0b1120; font-weight:700;'>"
+    f"{html.escape(status_text)}"  # noqa: E231
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+if st.button("📖 מדריך למדדים ומונחים", key="legend_button", help="לחצו להצגת מדריך המדדים"):
+    st.session_state["show_legend"] = True
+
+if st.session_state.get("show_legend"):
+    st.markdown(
+        """
+        <style>
+        .legend-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.82);
+            z-index: 9998;
+        }
+        .legend-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: min(680px, 92%);
+            max-height: 80vh;
+            overflow-y: auto;
+            background: #0b1120;
+            border: 1px solid #1f2937;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+            direction: rtl;
+            text-align: right;
+            color: #e5e7eb;
+            z-index: 9999;
+        }
+        .legend-close-wrapper {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+        }
+        .legend-close-wrapper button {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: #fca5a5;
+            padding: 0;
+        }
+        .legend-close-wrapper button:hover {
+            color: #f87171;
+        }
+        </style>
+        <div class='legend-overlay'></div>
+        <div class='legend-modal'>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<div class='legend-close-wrapper'>", unsafe_allow_html=True)
+    close_clicked = st.button("✕", key="legend_close_button")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown(
+        """
+            <h3 style='margin-top:0;'>מדריך למדדים ומונחים</h3>
+            <h4 style='color:#d1d5db;'>מדדי חדשות וסנטימנט</h4>
+            <ul style='padding-right:18px; line-height:1.7; color:#cbd5f5;'>
+                <li><strong>ציון סנטימנט</strong>: ציון בין -1 ל-1 המבטא את הטון הכללי של החדשות.<br><small>-1 עד -0.3 שלילי מאוד · -0.3 עד 0 שלילי קל · 0 עד 0.3 חיובי קל · 0.3 עד 1 חיובי מאוד</small></li>
+                <li><strong>Buzz Factor (חשיפה תקשורתית)</strong>: מספר הכתבות ביחס לממוצע.<br><small>< 1.0 חשיפה נמוכה · 1.0–2.0 נורמלי · > 2.0 חשיפה גבוהה</small></li>
+            </ul>
+            <h4 style='color:#d1d5db;'>מדדים טכניים</h4>
+            <ul style='padding-right:18px; line-height:1.7; color:#cbd5f5;'>
+                <li><strong>RSI (Relative Strength Index)</strong>: מדד כוח יחסי (0-100).<br><small>< 30 מכירה יתר — פוטנציאל לעלייה · 30–70 טווח נורמלי · > 70 קנייה יתר — פוטנציאל לירידה</small></li>
+                <li><strong>MACD Crossover</strong>: אות מומנטום (Bullish / Bearish / No Crossover).</li>
+                <li><strong>נפח מסחר</strong>: יחס הנפח היומי לממוצע.<br><small>< 1.0 נמוך · 1.0–1.5 נורמלי · > 2.0 גבוה מאוד — עניין מוגבר</small></li>
+            </ul>
+            <h4 style='color:#d1d5db;'>ציון ביטחון</h4>
+            <ul style='padding-right:18px; line-height:1.7; color:#cbd5f5;'>
+                <li>1–3 ביטחון נמוך מאוד</li>
+                <li>4–6 ביטחון בינוני</li>
+                <li>7–8 ביטחון גבוה</li>
+                <li>9–10 ביטחון גבוה מאוד</li>
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if close_clicked:
+        st.session_state["show_legend"] = False
+        st.experimental_rerun()
 
 input_description = "הזן רשימת מניות מופרדות בפסיק"
 symbols_input = st.text_input(input_description, placeholder="AAPL,MSFT,NVDA")
