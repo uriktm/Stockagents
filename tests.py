@@ -1,7 +1,7 @@
 # tests.py
 
 # ייבוא הכלים שאנחנו רוצים לבדוק מהקובץ tools.py
-from tools import CorporateEventsTool, VolumeAndTechnicalsTool
+from tools import CorporateEventsTool, VolumeAndTechnicalsTool, NewsAndBuzzTool
 
 def run_all_tests():
     """
@@ -21,6 +21,11 @@ def run_all_tests():
 
     nvda_technicals = VolumeAndTechnicalsTool('NVDA')
     print(f"Technicals for NVDA: {nvda_technicals}")
+
+    # --- בדיקה 3: NewsAndBuzzTool ---
+    print("\n--- Testing NewsAndBuzzTool ---")
+    aapl_news = NewsAndBuzzTool('AAPL')
+    print(f"News for AAPL: {aapl_news}")
 
 # הרצת הבדיקות כאשר מריצים את הקובץ ישירות
 if __name__ == "__main__":
