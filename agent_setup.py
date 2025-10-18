@@ -45,9 +45,8 @@ def _build_function_tool_schema(func) -> Dict[str, Any]:
     }
 
 
-def create_assistant():
+def create_assistant(client):
     """Create and return the AlphaSynthesizerAgent assistant."""
-    client = OpenAI()
     assistant = client.beta.assistants.create(
         name="AlphaSynthesizerAgent",
         instructions=_SYSTEM_PROMPT,

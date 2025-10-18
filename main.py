@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import logging
 import re
 import sys
 import time
@@ -11,6 +13,10 @@ from typing import Dict, Iterable, List, Optional
 from openai import OpenAI
 
 from agent_setup import create_assistant
+from tools import CorporateEventsTool, NewsAndBuzzTool, VolumeAndTechnicalsTool
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _parse_symbols(raw: str) -> List[str]:
@@ -25,14 +31,62 @@ def _parse_symbols(raw: str) -> List[str]:
     return symbols
 
 
-def _wait_for_run_completion(client: OpenAI, thread_id: str, run_id: str, poll_interval: float = 1.0) -> str:
+def _wait_for_run_completion(
+    client: OpenAI,
+    thread_id: str,
+    run_id: str,
+    tool_dispatch: Dict[str, callable],
+    poll_interval: float = 1.0,
+) -> str:
     """Polls the Assistants API until the run reaches a terminal state."""
     terminal_states = {"completed", "failed", "cancelled", "expired"}
 
     while True:
         run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run_id)
         status = getattr(run, "status", None)
+        if status == "requires_action":
+            action = getattr(run, "required_action", None)
+            submit = getattr(action, "submit_tool_outputs", None) if action else None
+            tool_calls = getattr(submit, "tool_calls", None) if submit else None
+            if tool_calls:
+                outputs = []
+                for call in tool_calls:
+                    function_meta = getattr(call, "function", None)
+                    name = getattr(function_meta, "name", "") if function_meta else ""
+                    arguments = getattr(function_meta, "arguments", "") if function_meta else ""
+                    LOGGER.info("Run %s requested tool %s", run_id, name)
+                    handler = tool_dispatch.get(name)
+                    if handler is None:
+                        LOGGER.error("No handler registered for tool %s", name)
+                        outputs.append({"tool_call_id": getattr(call, "id", ""), "output": json.dumps({"error": "Unknown tool"})})
+                        continue
+                    try:
+                        parsed_args = json.loads(arguments) if arguments else {}
+                    except json.JSONDecodeError:
+                        LOGGER.error("Failed to decode arguments for tool %s", name)
+                        parsed_args = {}
+                    if not isinstance(parsed_args, dict):
+                        LOGGER.error("Unexpected arguments type for tool %s", name)
+                        parsed_args = {}
+                    try:
+                        tool_output = handler(**parsed_args)
+                        LOGGER.info("Tool %s completed", name)
+                    except Exception as exc:  # pragma: no cover - best-effort logging
+                        LOGGER.exception("Tool %s execution failed", name)
+                        tool_output = {"error": str(exc)}
+                    outputs.append({
+                        "tool_call_id": getattr(call, "id", ""),
+                        "output": json.dumps(tool_output if tool_output is not None else {}),
+                    })
+                if outputs:
+                    client.beta.threads.runs.submit_tool_outputs(
+                        thread_id=thread_id,
+                        run_id=run_id,
+                        tool_outputs=outputs,
+                    )
+                    continue
         if status in terminal_states:
+            LOGGER.info("Run %s reached terminal status: %s", run_id, status)
             return status or "unknown"
         time.sleep(max(poll_interval, 0.1))
 
@@ -82,6 +136,7 @@ def _confidence_sort_key(result: Dict[str, object]) -> tuple[bool, float]:
 
 
 def main() -> int:
+    logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Run the Stockagents assistant for one or more stocks.")
     parser.add_argument(
         "--stocks",
@@ -95,13 +150,19 @@ def main() -> int:
         print("No valid stock symbols were provided. Please pass a comma-separated list via --stocks.")
         return 1
 
+    client = OpenAI()
+    assistant = create_assistant(client)
+    tool_dispatch = {
+        "NewsAndBuzzTool": NewsAndBuzzTool,
+        "VolumeAndTechnicalsTool": VolumeAndTechnicalsTool,
+        "CorporateEventsTool": CorporateEventsTool,
+    }
+
     exit_code = 0
     results: List[Dict[str, object]] = []
     for symbol in symbols:
         print(f"\n=== Analyzing {symbol} ===")
         try:
-            client = OpenAI()
-            assistant = create_assistant(client)
             thread = client.beta.threads.create()
 
             client.beta.threads.messages.create(
@@ -115,7 +176,7 @@ def main() -> int:
                 assistant_id=assistant.id,
             )
 
-            status = _wait_for_run_completion(client, thread.id, run.id)
+            status = _wait_for_run_completion(client, thread.id, run.id, tool_dispatch)
             if status != "completed":
                 print(f"Assistant run for {symbol} ended with status: {status}")
                 exit_code = 1
