@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import time
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional
 
 from openai import OpenAI
@@ -18,6 +19,7 @@ from tools import CorporateEventsTool, NewsAndBuzzTool, VolumeAndTechnicalsTool
 
 
 LOGGER = logging.getLogger(__name__)
+LOG_FILE_PATH = os.path.join(os.path.dirname(__file__), "run_history.log")
 
 
 def _parse_symbols(raw: str) -> List[str]:
@@ -135,6 +137,51 @@ def _extract_confidence_score(raw_response: str) -> Optional[float]:
     return None
 
 
+def _extract_forecast(raw_response: str) -> Optional[str]:
+    """Attempts to extract the forecast statement from the assistant's response."""
+    if not raw_response:
+        return None
+
+    patterns = [
+        r"^\s*-?\s*forecast[^:]*:\s*(.+)$",
+        r"^\s*-?\s*תחזית[^:]*:\s*(.+)$",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, raw_response, re.IGNORECASE | re.MULTILINE)
+        if match:
+            forecast = match.group(1).strip()
+            return forecast if forecast else None
+    return None
+
+
+def _append_run_log(entry: Dict[str, object]) -> None:
+    """Appends the run details to the persistent log file."""
+    timestamp = datetime.now(timezone.utc).astimezone().isoformat()
+    symbol = entry.get("symbol", "Unknown")
+    forecast = entry.get("forecast") or "Unavailable"
+    confidence = entry.get("confidence_score")
+    confidence_display = "Unavailable"
+    if isinstance(confidence, (int, float)):
+        confidence_display = f"{float(confidence):.2f}"
+    elif isinstance(confidence, str) and confidence.strip():
+        confidence_display = confidence.strip()
+
+    log_lines = [
+        "\n=== Stock Analysis Run ===",
+        f"Run Date: {timestamp}",
+        f"- Stock: {symbol}",
+        f"- Forecast: {forecast}",
+        f"- Confidence: {confidence_display}",
+    ]
+
+    try:
+        with open(LOG_FILE_PATH, "a", encoding="utf-8") as log_file:
+            log_file.write("\n".join(log_lines) + "\n")
+    except OSError:
+        LOGGER.exception("Failed to write run log entry for %s", symbol)
+
+
 def _confidence_sort_key(result: Dict[str, object]) -> tuple[bool, float]:
     """Produces a sorting key that ranks higher confidence scores first."""
     score = result.get("confidence_score")
@@ -216,6 +263,7 @@ def run_stock_analysis(
                 response_text = _render_assistant_response(messages.data)
                 entry["response_text"] = response_text
                 entry["confidence_score"] = _extract_confidence_score(response_text)
+                entry["forecast"] = _extract_forecast(response_text)
         except Exception as exc:  # pragma: no cover - best-effort logging
             LOGGER.exception("An error occurred while processing %s", symbol)
             entry["error"] = str(exc)
@@ -225,12 +273,16 @@ def run_stock_analysis(
         else:
             entry["tool_insights"] = {}
 
+        _append_run_log(entry)
         results.append(entry)
 
     for result in results:
         if "confidence_score" not in result:
             response_text = result.get("response_text") or ""
             result["confidence_score"] = _extract_confidence_score(response_text)
+        if "forecast" not in result:
+            response_text = result.get("response_text") or ""
+            result["forecast"] = _extract_forecast(response_text)
 
     results.sort(key=_confidence_sort_key, reverse=True)
     return results
