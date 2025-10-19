@@ -1,0 +1,128 @@
+2025-10-20 00:26:21,156 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing AAPL
+2025-10-20 00:26:26,109 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_XTVcXz16EUwnhbOXVYMwt7cI requested tool NewsAndBuzzTool
+2025-10-20 00:26:28,579 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 00:26:28,579 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_XTVcXz16EUwnhbOXVYMwt7cI requested tool VolumeAndTechnicalsTool
+2025-10-20 00:26:28,789 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 00:26:28,790 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_XTVcXz16EUwnhbOXVYMwt7cI requested tool CorporateEventsTool
+2025-10-20 00:26:30,131 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 00:26:37,710 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_XTVcXz16EUwnhbOXVYMwt7cI reached terminal status: completed
+2025-10-20 00:26:37,984 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for AAPL:
+### תחזית למניה AAPL
+**תחזית:** צפויה מגמה חיובית עקב סנטימנט חדשותי חיובי עם ציון של 0.8 ועניין תקשורתי גבוה, למרות קיומו של מומנטום דוב פנימי ונפח מסחר שאינו חריג.
+
+**ציון ביטחון:** 6/10 - ישנם גורמים חיוביים אך גם אזהרות טכניות.
+
+### הסבר סיבתי:
+- **סנטימנט חדשותי:** 
+  - ציון הסנטימנט גבוה (0.8), עם חדשות חיוביות רבות כגון:
+    - Apple הודיעה על שותפות לחמש שנים כשותפה לשידור פורמולה 1 בארה"ב ([קישור](https://sports.yahoo.com/article/apple-announces-five-partnership-u-130512518.html)).
+    -
+2025-10-20 00:26:37,984 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 6.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 00:26:37,985 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #1
+2025-10-20 00:26:37,985 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for AAPL - Confidence: 6.0, Forecast: צפויה מגמה חיובית עקב סנטימנט חדשותי חיובי עם ציון של 0.8 ועניין תקשורתי גבוה, למרות קיומו של מומנטום דוב פנימי ונפח מסחר שאינו חריג.
+2025-10-20 00:26:40,211 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing MSFT
+2025-10-20 00:26:44,387 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_knrb4jHSo1UGimRzvJv3JFcG requested tool NewsAndBuzzTool
+2025-10-20 00:26:46,686 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 00:26:46,686 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_knrb4jHSo1UGimRzvJv3JFcG requested tool VolumeAndTechnicalsTool
+2025-10-20 00:26:46,826 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 00:26:46,826 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_knrb4jHSo1UGimRzvJv3JFcG requested tool CorporateEventsTool
+2025-10-20 00:26:47,680 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 00:26:58,453 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_knrb4jHSo1UGimRzvJv3JFcG reached terminal status: completed
+2025-10-20 00:26:59,059 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for MSFT:
+## ניתוח מניה: MSFT (מיקרוסופט)
+
+### תחזית
+צפויה ירידה במחיר עקב משב רוח שלילי בשוק ו-RSI של 49 המצביע על מומנטום נייטרלי. כמו כן, למרות הבאזז התקשורתי, ישנן בעיות משפטיות העשויות להשפיע על האמון במניה.
+
+### ציון ביטחון
+ציון ביטחון: 6/10 - האינדיקטורים מצביעים על ניטרליות עם מספר גורמים שליליים.
+
+### הסבר סיבתי
+- **סנטימנט מעורב:** הסנטימנט החדשותי הוא 0.2, מה שמצביע על תמהיל מעורב של חדשות, עם כותרות כמו:
+  - ["מיקרוסופט תואמות (MSFT) נתבעת על ידי צרכנים בתביעה ייצוגית על עסקת OpenAI"](https://
+2025-10-20 00:26:59,059 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 6.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 00:26:59,061 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #5
+2025-10-20 00:26:59,061 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for MSFT - Confidence: 6.0, Forecast: צפויה ירידה במחיר עקב משב רוח שלילי בשוק ו-RSI של 49 המצביע על מומנטום נייטרלי. כמו כן, למרות הבאזז התקשורתי, ישנן בעיות משפטיות העשויות להשפיע על האמון במניה.
+2025-10-20 00:27:01,268 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing GOOGL
+2025-10-20 00:27:05,423 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_WbaZ5S6rd3B792tDumps20rv requested tool NewsAndBuzzTool
+2025-10-20 00:27:07,270 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 00:27:07,270 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_WbaZ5S6rd3B792tDumps20rv requested tool VolumeAndTechnicalsTool
+2025-10-20 00:27:07,385 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 00:27:07,385 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_WbaZ5S6rd3B792tDumps20rv requested tool CorporateEventsTool
+2025-10-20 00:27:08,728 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 00:27:16,874 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_WbaZ5S6rd3B792tDumps20rv reached terminal status: completed
+2025-10-20 00:27:17,255 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for GOOGL:
+### תחזית
+צפויה מגמה ניטרלית עם סנטימנט מעורב, בעיקר בגלל תערובת של חדשות חיוביות ושליליות: צפייה לעלייה במחיר בעקבות העלאת תחזיות מחיר על ידי גורמים כמו Goldman Sachs ו-BMO Capital, אך יש גם חששות מהתמודדות עם רגולציות חדשות.
+
+### ציון ביטחון
+ציון ביטחון: 6/10 - ישנם גורמים חיוביים כמו עליות תחזיות מחיר, אך המומנטום הטכני מצביע על דאגות.
+
+### הסבר סיבתי
+- **סנטימנט חיובי (0.4)**: 
+  - Goldman Sachs העלתה את התחזית שלה ל-GOOGL ל-288 דולר, תוך שמירה על דירוג "קנייה" ([קישור למאמר](https://finance
+2025-10-20 00:27:17,255 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 6.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 00:27:17,255 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #5
+2025-10-20 00:27:17,255 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for GOOGL - Confidence: 6.0, Forecast: צפויה מגמה ניטרלית עם סנטימנט מעורב, בעיקר בגלל תערובת של חדשות חיוביות ושליליות: צפייה לעלייה במחיר בעקבות העלאת תחזיות מחיר על ידי גורמים כמו Goldman Sachs ו-BMO Capital, אך יש גם חששות מהתמודדות עם רגולציות חדשות.
+2025-10-20 00:45:51,770 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing VHC
+2025-10-20 00:45:56,786 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_MACPZnLYcZx3Qa23v14jsmur requested tool NewsAndBuzzTool
+2025-10-20 00:45:58,007 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 00:45:58,007 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_MACPZnLYcZx3Qa23v14jsmur requested tool VolumeAndTechnicalsTool
+2025-10-20 00:45:58,184 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 00:45:58,184 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_MACPZnLYcZx3Qa23v14jsmur requested tool CorporateEventsTool
+2025-10-20 00:45:59,622 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 00:46:05,262 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_MACPZnLYcZx3Qa23v14jsmur reached terminal status: completed
+2025-10-20 00:46:05,548 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for VHC:
+### תחזית
+עלייה אפשרית במחיר המניה עקב מומנטום חיובי המוצג על ידי MACD crossover ונפח מסחר גבוה מאוד שמגיע ל-455% מהממוצע. עם זאת, יש להיזהר מכיוון שה-RSI נמצא ברמה גבוהה של 77.01, מה שמצביע על סיכון לתיקון.
+
+### ציון ביטחון
+ציון ביטחון: 6/10 - ישנן אינדיקציות חיוביות כמו MACD crossover ונפח מסחר גבוה, אך ה-RSI הגבוה מצביע על סיכון לתיקון.
+
+### הסבר סיבתי
+- **MACD Crossover:** הסיגנל טכני חיובי מראה על מומנטום עולה, שזהו אינדיקטור לאופטימיות בקרב המשקיעים.
+- **נפח מסחר גבוה:** נפח המסחר גבוה משמ
+2025-10-20 00:46:05,549 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 6.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 00:46:05,550 - stockagents.core.analysis - INFO - [_extract_forecast:224] - Forecast extracted using fallback method
+2025-10-20 00:46:05,550 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for VHC - Confidence: 6.0, Forecast: עלייה אפשרית במחיר המניה עקב מומנטום חיובי המוצג על ידי MACD crossover ונפח מסחר גבוה מאוד שמגיע ל-455% מהממוצע. עם זאת, יש להיזהר מכיוון שה-RSI נמצא ברמה גבוהה של 77.01, מה שמצביע על סיכון לתיקון.
+2025-10-20 00:46:06,274 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing AAPL
+2025-10-20 00:46:10,525 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_35nH8MHAs6OEisojEqsYMv5a requested tool NewsAndBuzzTool
+2025-10-20 00:46:12,554 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 00:46:12,554 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_35nH8MHAs6OEisojEqsYMv5a requested tool VolumeAndTechnicalsTool
+2025-10-20 00:46:12,698 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 00:46:12,698 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_35nH8MHAs6OEisojEqsYMv5a requested tool CorporateEventsTool
+2025-10-20 00:46:13,646 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 00:46:21,758 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_35nH8MHAs6OEisojEqsYMv5a reached terminal status: completed
+2025-10-20 00:46:22,053 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for AAPL:
+### תחזית
+צפויה מגמה מעורבת למניית אפל (AAPL) עם פוטנציאל לעלייה קלה אלא אם תתעורר ירידה חד משמעתית, זאת בזכות סנטימנט חדשותי חזק מאוד (0.8) אך תמרור טכני המצביע על מומנטום שלילי (Bearish Momentum).
+
+### ציון ביטחון
+ציון ביטחון: 6/10 - נתונים מעורבים עם סנטימנט חיובי אך תמרורי ירידה טכניים.
+
+### הסבר סיבתי
+- סנטימנט חיובי מאוד מהחדשות עם ציון 0.8, המצביע על אופטימיות בשוק לגבי שותפויות אסטרטגיות, כולל חוזה שידור עם פורמולה 1.
+    - [Apple announces five-year partnership as U.S. broadcast partner
+2025-10-20 00:46:22,053 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 6.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 00:46:22,053 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #5
+2025-10-20 00:46:22,054 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for AAPL - Confidence: 6.0, Forecast: צפויה מגמה מעורבת למניית אפל (AAPL) עם פוטנציאל לעלייה קלה אלא אם תתעורר ירידה חד משמעתית, זאת בזכות סנטימנט חדשותי חזק מאוד (0.8) אך תמרור טכני המצביע על מומנטום שלילי (Bearish Momentum).
+2025-10-20 00:48:10,968 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing IDYA
+2025-10-20 00:48:14,709 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_tCOubfbIgBJHgFeSjzNby7if requested tool NewsAndBuzzTool
+2025-10-20 00:48:16,768 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 00:48:16,768 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_tCOubfbIgBJHgFeSjzNby7if requested tool VolumeAndTechnicalsTool
+2025-10-20 00:48:16,877 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 00:48:16,877 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_tCOubfbIgBJHgFeSjzNby7if requested tool CorporateEventsTool
+2025-10-20 00:48:17,984 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 00:48:25,195 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_tCOubfbIgBJHgFeSjzNby7if reached terminal status: completed
+2025-10-20 00:48:25,478 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for IDYA:
+### תחזית
+צפויה עלייה במחיר המניה בשל סנטימנט חיובי חזק (0.8) ונפח מסחר הגבוה ב-280% מהממוצע, למרות שה-RSI מתקרב ל-70 (67.84).
+
+### ציון ביטחון
+ציון ביטחון: 7/10 - הנתונים מעורבים עם סנטימנט חיובי, אך יש אזהרה מה-RSI שמתקרב לרמה גבוהה.
+
+### הסבר סיבתי
+- **סנטימנט חיובי חזק:** קיימות שתי כתבות חדשותיות מעודדות מ-J.P. Morgan ו-Citizens JMP, ששתיהן מדגישות את הביטחון בהשקעה ב-IDEAYA Biosciences ([מקור 1](https://finance.yahoo.com/news/citizens-jmp-remains-bullish-ideaya-015504467.html), [מקור 2](ht
+2025-10-20 00:48:25,478 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 7.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 00:48:25,478 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #5
+2025-10-20 00:48:25,478 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for IDYA - Confidence: 7.0, Forecast: צפויה עלייה במחיר המניה בשל סנטימנט חיובי חזק (0.8) ונפח מסחר הגבוה ב-280% מהממוצע, למרות שה-RSI מתקרב ל-70 (67.84).

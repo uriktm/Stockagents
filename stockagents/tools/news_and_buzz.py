@@ -25,6 +25,7 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
         "sentiment_score": None,
         "narrative": "Insufficient data",
         "buzz_factor": 0.0,
+        "strength": 0.0,
         "top_headlines": [],
         "article_links": [],
         "source_count": 0,
@@ -227,6 +228,28 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
         narrative = str(sentiment_data.get("narrative", "No summary provided."))
         result["sentiment_score"] = sentiment_score
         result["narrative"] = narrative
+
+        strength_components = []
+        if sentiment_score is not None:
+            strength_components.append(min(abs(sentiment_score) / 0.6, 1.0))
+        if buzz_factor:
+            strength_components.append(min(buzz_factor / 3.0, 1.0))
+        if filtered_articles:
+            strength_components.append(min(len(filtered_articles) / 12.0, 1.0))
+
+        if strength_components:
+            result["strength"] = round(sum(strength_components) / len(strength_components), 2)
+
+        # Log sentiment analysis results
+        LOGGER.info(
+            "News sentiment for %s: Score=%.2f, Articles=%d, Buzz=%.2fx, Strength=%.2f, Narrative='%s'",
+            stock_symbol,
+            sentiment_score,
+            len(filtered_articles),
+            buzz_factor,
+            result.get("strength", 0.0),
+            narrative[:100] if narrative else "N/A"
+        )
     except (KeyError, ValueError, json.JSONDecodeError, TypeError) as exc:
         LOGGER.warning("Failed to parse sentiment response for %s: %s", stock_symbol, exc)
     except Exception as exc:  # pragma: no cover - best-effort logging

@@ -22,6 +22,22 @@ from stockagents.tools import (
 
 LOGGER = logging.getLogger(__name__)
 LOG_FILE_PATH = Path(__file__).resolve().parent.parent.parent / "run_history.log"
+DETAILED_LOG_PATH = Path(__file__).resolve().parent.parent.parent / "detailed_analysis.log"
+
+# Configure detailed file logging
+def _setup_detailed_logging():
+    """Setup detailed logging to file with full debug information."""
+    file_handler = logging.FileHandler(DETAILED_LOG_PATH, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s'
+    )
+    file_handler.setFormatter(formatter)
+    LOGGER.addHandler(file_handler)
+    LOGGER.setLevel(logging.DEBUG)
+
+# Call setup on module load
+_setup_detailed_logging()
 
 
 def parse_symbols(raw: str) -> List[str]:
@@ -128,6 +144,7 @@ def _render_assistant_response(messages: Iterable) -> str:
 def _extract_confidence_score(raw_response: str) -> Optional[float]:
     """Extract the numeric confidence score from the assistant's response."""
     if not raw_response:
+        LOGGER.warning("Empty response for confidence extraction")
         return None
 
     patterns = [
@@ -136,19 +153,32 @@ def _extract_confidence_score(raw_response: str) -> Optional[float]:
         r"([0-9]+(?:\.[0-9]+)?)\s*/\s*10",
     ]
 
-    for pattern in patterns:
+    for i, pattern in enumerate(patterns):
         match = re.search(pattern, raw_response, re.IGNORECASE)
         if match:
             try:
-                return float(match.group(1))
-            except (TypeError, ValueError):
+                score = float(match.group(1))
+                LOGGER.info(
+                    "Confidence score extracted: %.1f (using pattern #%d: '%s')",
+                    score, i + 1, pattern[:50]
+                )
+                return score
+            except (TypeError, ValueError) as e:
+                LOGGER.warning("Failed to convert confidence score: %s", e)
                 continue
+    
+    # If no pattern matched, log a sample of the response for debugging
+    LOGGER.warning(
+        "No confidence score found in response. Sample (first 300 chars): %s",
+        raw_response[:300]
+    )
     return None
 
 
 def _extract_forecast(raw_response: str) -> Optional[str]:
     """Attempt to extract the forecast statement from the assistant's response."""
     if not raw_response:
+        LOGGER.warning("Empty response received for forecast extraction")
         return None
 
     # Try multiple patterns to extract forecast
@@ -161,12 +191,12 @@ def _extract_forecast(raw_response: str) -> Optional[str]:
         r"^\s*\d+\.\s*\*?\*?תחזית\*?\*?[^:]*:\s*(.+)$",
         # English with number prefix
         r"^\s*\d+\.\s*\*?\*?forecast\*?\*?[^:]*:\s*(.+)$",
-        # Look for common forecast indicators
-        r"(?:צפויה?|פוטנציאל|מגמה)[^\n]{10,200}",
-        r"(?:expected|potential|trend|bullish|bearish)[^\n]{10,200}",
+        # Look for common forecast indicators with more context
+        r"(?:צפויה?|פוטנציאל ל|מגמת?)[^\n]{15,250}",
+        r"(?:expected|potential for|trend of|bullish|bearish)[^\n]{15,250}",
     ]
 
-    for pattern in patterns:
+    for i, pattern in enumerate(patterns):
         match = re.search(pattern, raw_response, re.IGNORECASE | re.MULTILINE)
         if match:
             # Extract the matched text
@@ -180,6 +210,7 @@ def _extract_forecast(raw_response: str) -> Optional[str]:
             
             # Skip if it's too short or looks like a header
             if len(forecast) > 10 and not forecast.endswith(':'):
+                LOGGER.info("Forecast extracted using pattern #%d", i + 1)
                 return forecast
     
     # Last resort: try to find the first substantial sentence
@@ -188,10 +219,19 @@ def _extract_forecast(raw_response: str) -> Optional[str]:
         line = line.strip().strip('*').strip('-').strip()
         if len(line) > 20 and not line.endswith(':') and not line.startswith('#'):
             # Check if it contains forecast-like keywords
-            forecast_keywords = ['צפוי', 'עלי', 'ירידה', 'מגמה', 'פוטנציאל', 'expected', 'trend', 'potential']
+            forecast_keywords = ['צפוי', 'עלי', 'ירידה', 'מגמה', 'פוטנציאל', 'expected', 'trend', 'potential', 'bullish', 'bearish']
             if any(keyword in line.lower() for keyword in forecast_keywords):
+                LOGGER.info("Forecast extracted using fallback method")
                 return line
     
+    # Ultimate fallback: return the first non-empty line if it's substantial
+    for line in lines:
+        line = line.strip().strip('*').strip('-').strip()
+        if len(line) > 30:
+            LOGGER.warning("Using first substantial line as forecast (no keywords matched)")
+            return line
+    
+    LOGGER.error("Failed to extract forecast from response. First 200 chars: %s", raw_response[:200])
     return None
 
 

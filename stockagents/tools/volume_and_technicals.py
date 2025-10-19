@@ -17,6 +17,7 @@ def VolumeAndTechnicalsTool(stock_symbol: str) -> Dict[str, object]:
         "technical_signal": "Insufficient Data",
         "rsi": None,
         "macd_signal_status": "Unavailable",
+        "strength": 0.0,
     }
 
     if not stock_symbol or not stock_symbol.strip():
@@ -27,6 +28,7 @@ def VolumeAndTechnicalsTool(stock_symbol: str) -> Dict[str, object]:
         ticker = yf.Ticker(stock_symbol.strip())
         history = ticker.history(period="3mo", interval="1d")
         if history is None or history.empty:
+            LOGGER.warning("No historical data for %s", stock_symbol)
             return result
 
         volume = history.get("Volume")
@@ -36,9 +38,29 @@ def VolumeAndTechnicalsTool(stock_symbol: str) -> Dict[str, object]:
 
         volume = volume.dropna()
         if volume.shape[0] >= 2:
+            # Use the most recent COMPLETED trading day's volume
+            # If current day is incomplete (intraday/after-hours), use previous day
             recent_volume = volume.iloc[-1]
+            
+            # Check if volume seems abnormally low (might be incomplete day)
             lookback_volume = volume.iloc[:-1].tail(20)
             average_volume = lookback_volume.mean()
+            
+            # If recent volume is suspiciously low (< 10% of average), use previous day
+            if average_volume > 0 and recent_volume < (average_volume * 0.1):
+                LOGGER.info(
+                    "Recent volume for %s seems incomplete (%d vs avg %d), using previous day",
+                    stock_symbol, recent_volume, int(average_volume)
+                )
+                LOGGER.debug(
+                    "Recent volume for %s seems incomplete, details: recent_volume=%d, average_volume=%d, ratio=%.2f",
+                    stock_symbol, recent_volume, int(average_volume), recent_volume / average_volume
+                )
+                if volume.shape[0] >= 3:
+                    recent_volume = volume.iloc[-2]
+                    lookback_volume = volume.iloc[:-2].tail(20)
+                    average_volume = lookback_volume.mean()
+            
             if average_volume and average_volume > 0:
                 result["volume_spike_ratio"] = float(recent_volume / average_volume)
 
@@ -104,6 +126,32 @@ def VolumeAndTechnicalsTool(stock_symbol: str) -> Dict[str, object]:
                 result["technical_signal"] = "Bearish Momentum"
             else:
                 result["technical_signal"] = "Neutral Momentum"
+
+        # Compute a simple strength metric (0-1) combining RSI distance from mid, volume spike, and MACD alignment
+        strength_components = []
+        if result["rsi"] is not None:
+            rsi = result["rsi"]
+            strength_components.append(min(abs(rsi - 50) / 40, 1.0))
+        if result["volume_spike_ratio"]:
+            strength_components.append(min(result["volume_spike_ratio"] / 3.0, 1.0))
+        if result["technical_signal"].startswith("Bullish"):
+            strength_components.append(min(max(macd_diff, 0) * 5, 1.0))
+        elif result["technical_signal"].startswith("Bearish"):
+            strength_components.append(min(max(-macd_diff, 0) * 5, 1.0))
+
+        if strength_components:
+            result["strength"] = round(sum(strength_components) / len(strength_components), 2)
+
+        # Log the complete results for debugging
+        LOGGER.info(
+            "Technical analysis for %s: RSI=%.2f, Volume Ratio=%.2f, Signal=%s, MACD Status=%s, Strength=%.2f",
+            stock_symbol,
+            result.get("rsi") or 0,
+            result.get("volume_spike_ratio") or 0,
+            result.get("technical_signal"),
+            result.get("macd_signal_status"),
+            result.get("strength", 0.0)
+        )
 
     except Exception as exc:  # pragma: no cover - best-effort logging
         LOGGER.warning("Failed to fetch technicals for %s: %s", stock_symbol, exc)
