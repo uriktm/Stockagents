@@ -216,11 +216,10 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
     _load_local_env()
 
     news_api_key = os.getenv("NEWSAPI_API_KEY") or os.getenv("NEWS_API_KEY")
-    fmp_api_key = os.getenv("FMP_API_KEY")
     openai_api_key = os.getenv("OPENAI_API_KEY")
 
-    if not news_api_key and not fmp_api_key:
-        LOGGER.warning("NewsAndBuzzTool requires at least one news API key (NewsAPI or FMP_API_KEY).")
+    if not news_api_key:
+        LOGGER.warning("NewsAndBuzzTool requires NEWSAPI_API_KEY (or NEWS_API_KEY).")
         return result
 
     if not openai_api_key:
@@ -330,39 +329,6 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
                 add_article(article, "NewsAPI")
         except (requests.RequestException, json.JSONDecodeError) as exc:
             LOGGER.warning("Failed to fetch NewsAPI articles for %s: %s", stock_symbol, exc)
-
-    if fmp_api_key:
-        fmp_endpoints = (
-            "https://financialmodelingprep.com/api/v4/stock_news",
-            "https://financialmodelingprep.com/api/v3/stock_news",
-        )
-        for endpoint in fmp_endpoints:
-            try:
-                response = requests.get(
-                    endpoint,
-                    params={"tickers": stock_symbol, "limit": 25, "apikey": fmp_api_key},
-                    timeout=10,
-                )
-                if response.status_code == 403:
-                    text = response.text.lower()
-                    if "legacy endpoint" in text or "invalid api key" in text:
-                        LOGGER.info(
-                            "FMP endpoint %s not available for the current plan; skipping.",
-                            endpoint,
-                        )
-                        continue
-                response.raise_for_status()
-                payload = response.json()
-                if isinstance(payload, dict):
-                    articles = payload.get("data") or payload.get("news") or []
-                else:
-                    articles = payload
-                if not isinstance(articles, list):
-                    articles = []
-                for article in articles:
-                    add_article(article, "FMP")
-            except (requests.RequestException, json.JSONDecodeError) as exc:
-                LOGGER.warning("Failed to fetch FMP articles for %s from %s: %s", stock_symbol, endpoint, exc)
 
     if not combined_articles:
         return result
