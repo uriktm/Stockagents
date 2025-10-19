@@ -74,13 +74,15 @@ def _render_points(title: str, icon: str, points: list[str]) -> str:
     if not points:
         return ""
     items = "".join(
-        f"<li style='margin-bottom:4px; direction:rtl; text-align:right;'>{point if point.startswith('<a ') else html.escape(point)}</li>"
+        "<li class='info-section__item'>{}</li>".format(
+            point if point.startswith("<a ") else html.escape(point)
+        )
         for point in points
     )
     return (
-        f"<div style='margin-top:18px; direction:rtl; text-align:right;'>"
-        f"<div style='font-weight:600; font-size:16px; margin-bottom:6px;'>{icon} {html.escape(title)}</div>"
-        f"<ul style='padding-right:20px; padding-left:0; margin:0; color:#e5e7eb; list-style-position:inside;'>{items}</ul>"
+        "<div class='info-section'>"
+        f"<div class='info-section__title'>{icon} {html.escape(title)}</div>"
+        f"<ul class='info-section__list'>{items}</ul>"
         "</div>"
     )
 
@@ -164,8 +166,8 @@ def _build_card(result: dict) -> str:
 
     tone = _forecast_tone(forecast)
     badge_html = (
-        "<div style='display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap;'>"
-        f"<span style='display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:999px; border:1px solid {tone['badge_border']}; background:{tone['badge_bg']}; color:{tone['badge_border']}; font-weight:700;'>"
+        "<div class='tone-badge-wrapper'>"
+        f"<span class='tone-badge' style='border-color:{tone['badge_border']}; background:{tone['badge_bg']}; color:{tone['badge_border']}'>"
         f"{tone['icon']} {tone['label']}"
         "</span>"
         "</div>"
@@ -280,28 +282,28 @@ def _build_card(result: dict) -> str:
     response_text = result.get("response_text") or "(אין ניתוח מפורט מהסוכן.)"
     details = html.escape(response_text)
 
+    sections_html = f"<div class='analysis-card__sections'>{sections}</div>" if sections else ""
+
     return (
-        "<div style='background:linear-gradient(135deg,#111827,#0b1120); border:1px solid #1f2937; "
-        "border-radius:18px; padding:24px; margin-bottom:24px; direction:rtl; text-align:right;'>"
-        "<div style='display:flex; justify-content:space-between; align-items:center; gap:16px; direction:rtl;'>"
-        f"<div style='color:#f9fafb; display:flex; flex-direction:column; gap:10px;'>"
-        f"<div style='font-size:26px; font-weight:700; letter-spacing:0.4px;'>{html.escape(symbol)}</div>"
-        f"<div style='margin-top:10px;'>{badge_html}</div>"
-        f"<div style='font-size:18px; margin-top:8px;'>תחזית: <span style='color:{tone['text_color']}; font-weight:600;'>{forecast_safe}</span></div>"
+        "<div class='analysis-card'>"
+        "<div class='analysis-card__header'>"
+        "<div class='analysis-card__summary'>"
+        f"<div class='analysis-card__symbol'>{html.escape(symbol)}</div>"
+        f"{badge_html}"
+        f"<div class='analysis-card__forecast'>תחזית: <span style='color:{tone['text_color']};'>{forecast_safe}</span></div>"
         "</div>"
-        "<div style='display:flex; flex-direction:column; align-items:center; gap:8px;'>"
-        "<div style='font-size:14px; color:#bfdbfe;'>רמת ביטחון של המודל (1-10)</div>"
-        f"<div style='width:130px; height:130px; border-radius:50%; background:{color}; display:flex; flex-direction:column; "
-        "justify-content:center; align-items:center; flex-shrink:0;'>"
-        f"<div style='font-size:48px; line-height:1; font-weight:900; color:#1a1a1a; margin-bottom:4px;'>{score_display}</div>"
-        "<div style='font-size:18px; font-weight:700; color:#1a1a1a; margin-bottom:6px;'>/10</div>"
-        "<div style='font-size:13px; font-weight:600; color:#2a2a2a;'>ציון ביטחון</div>"
+        "<div class='analysis-card__score'>"
+        "<div class='score-chip__label'>רמת ביטחון של המודל</div>"
+        f"<div class='score-chip' style='background:{color};'>"
+        f"<div class='score-chip__value'>{score_display}</div>"
+        "<div class='score-chip__suffix'>/10</div>"
         "</div>"
         "</div>"
-        f"{sections if sections else ''}"
-        "<details style='margin-top:20px; color:#f3f4f6; direction:rtl; text-align:right;'>"
-        "<summary style='cursor:pointer; font-weight:600;'>הצג את הניתוח המלא</summary>"
-        f"<pre style='white-space:pre-wrap; font-family:inherit; background:#0f172a; border-radius:12px; padding:16px; margin-top:12px; direction:rtl; text-align:right;'>{details}</pre>"
+        "</div>"
+        f"{sections_html}"
+        "<details class='analysis-card__details'>"
+        "<summary>הצג את הניתוח המלא</summary>"
+        f"<pre>{details}</pre>"
         "</details>"
         "</div>"
     )
@@ -312,60 +314,379 @@ st.set_page_config(page_title="Stockagents Dashboard", layout="wide")
 # Hebrew RTL styling
 st.markdown("""
 <style>
-    /* Hebrew font */
-    * {
-        font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    :root {
+        color-scheme: dark;
     }
-    
-    /* Main container RTL */
+
+    * {
+        font-family: 'Rubik', 'Assistant', 'Segoe UI', Tahoma, Arial, sans-serif;
+    }
+
+    .stApp {
+        background: radial-gradient(120% 120% at 78% 0%, rgba(30, 64, 175, 0.55) 0%, #020617 60%, #000000 100%);
+        color: #f8fafc;
+    }
+
     .main .block-container {
         direction: rtl;
         text-align: right;
+        max-width: 1150px;
+        padding-top: 2.6rem;
+        padding-bottom: 4rem;
     }
-    
-    /* Input fields RTL */
+
     .stTextInput > div > div > input {
         direction: rtl;
         text-align: right;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.32);
+        border-radius: 14px;
+        padding: 0.75rem 1rem;
+        color: #f8fafc;
     }
-    
+
+    .stTextInput > div > div > input:focus {
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 1px #38bdf8;
+    }
+
     .stTextInput label {
         direction: rtl;
         text-align: right;
+        color: #cbd5f5;
+        font-weight: 600;
     }
-    
-    /* Buttons RTL */
+
     .stButton > button {
         direction: rtl;
+        border-radius: 12px;
+        border: none;
+        padding: 0.65rem 1.9rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #38bdf8, #34d399);
+        color: #041424;
+        box-shadow: 0 16px 32px rgba(56, 189, 248, 0.25);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-    
-    /* All text elements RTL */
+
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 20px 36px rgba(52, 211, 153, 0.28);
+    }
+
+    .stButton > button:focus {
+        border: none;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
+    }
+
     p, h1, h2, h3, h4, h5, h6, label, div {
         direction: rtl;
         text-align: right;
     }
-    
-    /* Info/Error messages RTL */
-    .stAlert {
+
+    .stAlert, .stAlert > div, .stSpinner > div, .stMarkdown {
         direction: rtl;
         text-align: right;
     }
-    
-    .stAlert > div {
-        direction: rtl;
-        text-align: right;
+
+    .hero-card {
+        background: linear-gradient(135deg, rgba(30, 64, 175, 0.48), rgba(56, 189, 248, 0.35), rgba(34, 197, 94, 0.3));
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 28px;
+        padding: 34px 36px;
+        color: #f8fafc;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 28px;
+        justify-content: space-between;
+        box-shadow: 0 25px 60px rgba(15, 23, 42, 0.55);
     }
-    
-    /* Spinner text RTL */
-    .stSpinner > div {
-        direction: rtl;
-        text-align: right;
+
+    .hero-card__text {
+        max-width: 620px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
     }
-    
-    /* Markdown RTL */
-    .stMarkdown {
-        direction: rtl;
-        text-align: right;
+
+    .hero-card__text h1 {
+        font-size: 2.35rem;
+        margin: 0;
+        letter-spacing: 0.02em;
+    }
+
+    .hero-card__text p {
+        margin: 0;
+        color: #e2e8f0;
+        line-height: 1.6;
+        font-size: 1.05rem;
+    }
+
+    .hero-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 6px;
+    }
+
+    .hero-chip {
+        background: rgba(15, 23, 42, 0.45);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        color: #f8fafc;
+        padding: 0.45rem 0.9rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .hero-card__status {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        align-items: flex-start;
+        justify-content: center;
+        min-width: 220px;
+    }
+
+    .hero-card__status-label {
+        font-size: 0.85rem;
+        letter-spacing: 0.05em;
+        color: #cbd5f5;
+    }
+
+    .hero-card__status-chip {
+        padding: 0.6rem 1.2rem;
+        border-radius: 999px;
+        font-weight: 800;
+        font-size: 1.05rem;
+        color: #020617;
+        box-shadow: 0 18px 42px rgba(14, 165, 233, 0.35);
+    }
+
+    .hero-card__status-note {
+        color: #e0f2fe;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .input-hint {
+        margin: 28px 0 10px;
+        background: rgba(15, 23, 42, 0.55);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 18px;
+        padding: 16px 20px;
+        color: #e2e8f0;
+        font-size: 0.95rem;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .input-hint strong {
+        color: #f8fafc;
+        font-size: 1.05rem;
+    }
+
+    .input-hint span {
+        color: #cbd5f5;
+        font-size: 0.88rem;
+    }
+
+    .tone-badge-wrapper {
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .tone-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0.45rem 1.1rem;
+        border-radius: 999px;
+        border: 1px solid;
+        font-weight: 700;
+        font-size: 0.95rem;
+        background: rgba(15, 23, 42, 0.6);
+    }
+
+    .analysis-card {
+        background: linear-gradient(165deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.92));
+        border: 1px solid rgba(30, 64, 175, 0.28);
+        border-radius: 24px;
+        padding: 28px;
+        margin-bottom: 26px;
+        color: #f8fafc;
+        box-shadow: 0 22px 50px rgba(2, 6, 23, 0.65);
+    }
+
+    .analysis-card__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+
+    .analysis-card__summary {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .analysis-card__symbol {
+        font-size: 2.2rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .analysis-card__forecast {
+        font-size: 1.05rem;
+        color: #e2e8f0;
+        font-weight: 600;
+    }
+
+    .analysis-card__score {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .score-chip__label {
+        font-size: 0.85rem;
+        color: #cbd5f5;
+        letter-spacing: 0.03em;
+    }
+
+    .score-chip {
+        width: 132px;
+        height: 132px;
+        border-radius: 26px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: #041424;
+        font-weight: 800;
+        box-shadow: 0 18px 40px rgba(59, 130, 246, 0.35);
+    }
+
+    .score-chip__value {
+        font-size: 3.3rem;
+        line-height: 1;
+    }
+
+    .score-chip__suffix {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-top: 2px;
+    }
+
+    .analysis-card__sections {
+        margin-top: 24px;
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .info-section {
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 18px;
+        padding: 18px 20px;
+        min-height: 160px;
+    }
+
+    .info-section__title {
+        font-weight: 700;
+        font-size: 1.05rem;
+        margin-bottom: 10px;
+        color: #c4d4ff;
+    }
+
+    .info-section__list {
+        margin: 0;
+        padding-right: 1.1rem;
+        list-style-position: inside;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        color: #e5e7eb;
+    }
+
+    .info-section__item {
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+
+    .info-section__item a {
+        color: #38bdf8;
+        text-decoration: none;
+    }
+
+    .info-section__item a:hover {
+        text-decoration: underline;
+    }
+
+    .analysis-card__details {
+        margin-top: 26px;
+        color: #f3f4f6;
+    }
+
+    .analysis-card__details summary {
+        cursor: pointer;
+        font-weight: 700;
+        color: #93c5fd;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .analysis-card__details summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .analysis-card__details summary::after {
+        content: '▼';
+        font-size: 0.75rem;
+        color: #38bdf8;
+        transition: transform 0.2s ease;
+    }
+
+    .analysis-card__details[open] summary::after {
+        transform: rotate(180deg);
+    }
+
+    .analysis-card__details pre {
+        white-space: pre-wrap;
+        font-family: 'Rubik', 'Assistant', 'Segoe UI', sans-serif;
+        background: rgba(8, 25, 48, 0.85);
+        border-radius: 16px;
+        padding: 18px;
+        margin-top: 14px;
+        color: #f1f5f9;
+        border: 1px solid rgba(59, 130, 246, 0.35);
+    }
+
+    @media (max-width: 768px) {
+        .hero-card {
+            padding: 26px;
+        }
+
+        .hero-card__text h1 {
+            font-size: 1.8rem;
+        }
+
+        .analysis-card {
+            padding: 22px;
+        }
+
+        .score-chip {
+            width: 120px;
+            height: 120px;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -381,15 +702,33 @@ if "status_level" not in st.session_state:
 if "show_legend" not in st.session_state:
     st.session_state["show_legend"] = False
 
-st.title("ממשק ניתוח מניות - Stockagents")
-
 status_text, status_color = _market_session_status()
-st.markdown(
-    f"<div style='margin-bottom:16px; display:inline-block; padding:6px 14px; border-radius:999px; background:{status_color}; color:#0b1120; font-weight:700;'>"
-    f"{html.escape(status_text)}"  # noqa: E231
-    "</div>",
-    unsafe_allow_html=True,
-)
+hero_html = f"""
+<div class='hero-card'>
+    <div class='hero-card__text'>
+        <h1>ממשק ניתוח מניות - Stockagents</h1>
+        <p>
+            לוח הבקרה החכם שמרכז עבורך תחזיות, חדשות, ניתוחים טכניים ואירועים תאגידיים - הכל בעברית,
+            עם דגש על הדברים שבאמת חשוב לדעת לפני קבלת החלטה.
+        </p>
+        <div class='hero-chips'>
+            <span class='hero-chip'>מעקב חדשות בזמן אמת</span>
+            <span class='hero-chip'>איתותים טכניים</span>
+            <span class='hero-chip'>אירועים תאגידיים קרובים</span>
+        </div>
+    </div>
+    <div class='hero-card__status'>
+        <div class='hero-card__status-label'>סטטוס שוק</div>
+        <div class='hero-card__status-chip' style='background:{status_color};'>
+            {html.escape(status_text)}
+        </div>
+        <div class='hero-card__status-note'>
+            בדוק את מצב השוק לפני ניתוח - חלק מהאיתותים עובדים טוב יותר בזמני מסחר פעילים.
+        </div>
+    </div>
+</div>
+"""
+st.markdown(hero_html, unsafe_allow_html=True)
 
 if st.button("📖 מדריך למדדים ומונחים", key="legend_button", help="לחצו להצגת מדריך המדדים"):
     st.session_state["show_legend"] = True
@@ -481,6 +820,17 @@ if st.session_state.get("show_legend"):
     if close_clicked:
         st.session_state["show_legend"] = False
         st.experimental_rerun()
+
+st.markdown(
+    """
+    <div class='input-hint'>
+        <strong>איך להתחיל?</strong>
+        <span>הקלד סימולי מניות באנגלית, מופרדים בפסיק, לדוגמה: <code>AAPL, MSFT, NVDA</code>.</span>
+        <span>לחיצה על "נתח" תפעיל את הסוכן ותציג כרטיס תמציתי עם הסבר, מדדי סנטימנט וטכני וקישורים בולטים.</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 input_description = "הזן רשימת מניות מופרדות בפסיק"
 symbols_input = st.text_input(input_description, placeholder="AAPL,MSFT,NVDA")
