@@ -21,7 +21,7 @@ from stockagents.tools import (
 )
 
 LOGGER = logging.getLogger(__name__)
-LOG_FILE_PATH = Path(__file__).resolve().parent.parent / "run_history.log"
+LOG_FILE_PATH = Path(__file__).resolve().parent.parent.parent / "run_history.log"
 
 
 def parse_symbols(raw: str) -> List[str]:
@@ -225,7 +225,7 @@ def run_stock_analysis(
 
     if client is None:
         api_key = None
-        env_path = Path(__file__).resolve().parent.parent / ".env"
+        env_path = Path(__file__).resolve().parent.parent.parent / ".env"
         if env_path.is_file():
             with env_path.open("r", encoding="utf-8") as f:
                 for line in f:

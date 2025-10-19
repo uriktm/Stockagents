@@ -11,7 +11,7 @@ LOGGER = logging.getLogger(__name__)
 
 def load_local_env(filename: str = ".env") -> None:
     """Load environment variables from ``filename`` relative to the project root."""
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = Path(__file__).resolve().parent.parent.parent
     env_path = project_root / filename
     if not env_path.is_file():
         return
