@@ -6,7 +6,11 @@ from typing import Any, Dict
 
 from openai import OpenAI
 
-from tools import CorporateEventsTool, NewsAndBuzzTool, VolumeAndTechnicalsTool
+from stockagents.tools import (
+    CorporateEventsTool,
+    NewsAndBuzzTool,
+    VolumeAndTechnicalsTool,
+)
 
 _SYSTEM_PROMPT = (
     "אתה אנליסט פיננסי כמותי בכיר. המטרה שלך היא לנתח מניות ולזהות הזדמנויות השקעה על סמך "
@@ -52,13 +56,12 @@ def _build_function_tool_schema(func) -> Dict[str, Any]:
     }
 
 
-def create_assistant(client):
+def create_assistant(client: OpenAI):
     """Create and return the AlphaSynthesizerAgent assistant."""
     assistant = client.beta.assistants.create(
         name="AlphaSynthesizerAgent",
         instructions=_SYSTEM_PROMPT,
         model="gpt-4o-mini",
-        # Register the data-gathering tools so the assistant can pull market, news, and events context on demand.
         tools=[
             _build_function_tool_schema(NewsAndBuzzTool),
             _build_function_tool_schema(VolumeAndTechnicalsTool),

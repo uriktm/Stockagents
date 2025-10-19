@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 
-from main import _parse_symbols, run_stock_analysis
+from stockagents import parse_symbols, run_stock_analysis
 
 
 def _format_score(score: object) -> tuple[str, float | None]:
@@ -755,7 +755,7 @@ if trigger and not st.session_state["analysis_in_progress"]:
     st.session_state["analysis_error"] = None
     st.session_state["status_message"] = ""
     st.session_state["status_level"] = "info"
-    symbols = _parse_symbols(symbols_input)
+    symbols = parse_symbols(symbols_input)
     if not symbols:
         st.session_state["analysis_error"] = "נא להזין לפחות סמל בורסאי אחד תקף."
         st.session_state["analysis_in_progress"] = False
