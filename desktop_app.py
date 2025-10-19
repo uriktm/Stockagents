@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import logging
 from datetime import datetime, time
 from typing import Any, Dict, List, Optional
 
@@ -26,6 +27,13 @@ from PySide6.QtWidgets import (
 from zoneinfo import ZoneInfo
 
 from stockagents import parse_symbols, run_stock_analysis
+
+# Configure logging for desktop app
+LOGGER = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 
 def _format_score(score: object) -> tuple[str, Optional[float]]:
@@ -147,49 +155,81 @@ class AnalysisWorker(QObject):
     def __init__(self, symbols: List[str]):
         super().__init__()
         self._symbols = symbols
+        self._should_stop = False
 
     @Slot()
     def run(self) -> None:
+        LOGGER.info("🔄 Worker started - analyzing symbols: %s", self._symbols)
         try:
+            if self._should_stop:
+                LOGGER.info("⚠️ Worker stopped before starting analysis")
+                return
+            
+            LOGGER.info("📊 Calling run_stock_analysis...")
             results = run_stock_analysis(self._symbols)
+            LOGGER.info("✅ Analysis completed - received %d results", len(results))
+            
+            if not self._should_stop:
+                LOGGER.info("📤 Emitting finished signal with results")
+                self.finished.emit(results)
+            else:
+                LOGGER.info("⚠️ Worker stopped, not emitting results")
         except Exception as exc:  # pragma: no cover - GUI best effort
-            self.failed.emit(str(exc))
-        else:
-            self.finished.emit(results)
+            import traceback
+            error_msg = f"{str(exc)}\n\nStack trace:\n{traceback.format_exc()}"
+            LOGGER.error("❌ Worker error: %s", error_msg)
+            if not self._should_stop:
+                LOGGER.info("📤 Emitting failed signal")
+                self.failed.emit(error_msg)
+    
+    def stop(self):
+        LOGGER.info("🛑 Worker stop requested")
+        self._should_stop = True
 
 
 class ResultCard(QFrame):
     def __init__(self, result: Dict[str, Any], parent: Optional[QWidget] = None):
-        super().__init__(parent)
-        self.setObjectName("resultCard")
-        self.setFrameShape(QFrame.StyledPanel)
-        self.setStyleSheet(
-            """
-            QFrame#resultCard {
-                background-color: rgba(15, 23, 42, 0.85);
-                border: 1px solid rgba(148, 163, 184, 0.3);
-                border-radius: 14px;
-                color: #e2e8f0;
-            }
-            QFrame#resultCard QLabel {
-                font-size: 14px;
-            }
-            """
-        )
+        LOGGER.info("🎴 Initializing ResultCard for %s", result.get('symbol', 'Unknown'))
+        try:
+            super().__init__(parent)
+            self.setObjectName("resultCard")
+            self.setFrameShape(QFrame.StyledPanel)
+            self.setStyleSheet(
+                """
+                QFrame#resultCard {
+                    background-color: rgba(15, 23, 42, 0.85);
+                    border: 1px solid rgba(148, 163, 184, 0.3);
+                    border-radius: 14px;
+                    color: #e2e8f0;
+                }
+                QFrame#resultCard QLabel {
+                    font-size: 14px;
+                }
+                """
+            )
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(12)
+            LOGGER.info("  📐 Creating layout...")
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(18, 18, 18, 18)
+            layout.setSpacing(12)
 
-        header = self._build_header(result)
-        layout.addLayout(header)
+            LOGGER.info("  📋 Building header...")
+            header = self._build_header(result)
+            layout.addLayout(header)
 
-        sections = self._build_sections(result.get("tool_insights") or {})
-        if sections:
-            layout.addWidget(sections)
+            LOGGER.info("  📊 Building sections...")
+            sections = self._build_sections(result.get("tool_insights") or {})
+            if sections:
+                layout.addWidget(sections)
 
-        details = self._build_details(result.get("response_text"))
-        layout.addWidget(details)
+            LOGGER.info("  📝 Building details...")
+            details = self._build_details(result.get("response_text"))
+            layout.addWidget(details)
+            
+            LOGGER.info("  ✅ ResultCard initialized successfully")
+        except Exception as e:
+            LOGGER.exception("  ❌ Error in ResultCard.__init__: %s", e)
+            raise
 
     def _build_header(self, result: Dict[str, Any]) -> QHBoxLayout:
         symbol = str(result.get("symbol", ""))
@@ -211,7 +251,7 @@ class ResultCard(QFrame):
         summary_layout.addWidget(symbol_label)
 
         badge_label = QLabel(f"{tone['icon']} {tone['label']}")
-        badge_label.setAlignment(Qt.AlignRight)
+        badge_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         badge_label.setStyleSheet(
             f"background-color: {tone['badge_bg']};"
             f"border: 1px solid {tone['badge_border']};"
@@ -219,7 +259,7 @@ class ResultCard(QFrame):
             "padding: 4px 12px;"
             "font-weight: 600;"
         )
-        summary_layout.addWidget(badge_label)
+        summary_layout.addWidget(badge_label, alignment=Qt.AlignRight)
 
         forecast_label = QLabel(f"תחזית: <span style='color:{tone['text_color']};'>{forecast}</span>")
         forecast_label.setTextFormat(Qt.RichText)
@@ -449,7 +489,10 @@ class ResultCard(QFrame):
 
 class AnalysisWindow(QMainWindow):
     def __init__(self) -> None:
+        LOGGER.info("🏗️ Initializing AnalysisWindow...")
         super().__init__()
+        
+        LOGGER.info("⚙️ Setting window properties...")
         self.setWindowTitle("Stockagents Desktop")
         self.resize(1100, 780)
         self.setLayoutDirection(Qt.RightToLeft)
@@ -460,16 +503,20 @@ class AnalysisWindow(QMainWindow):
         self._thread: Optional[QThread] = None
         self._worker: Optional[AnalysisWorker] = None
 
+        LOGGER.info("📐 Setting up main layout...")
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(24, 24, 24, 24)
         main_layout.setSpacing(18)
 
+        LOGGER.info("🎨 Building hero section...")
         self.hero = self._build_hero()
         main_layout.addWidget(self.hero)
 
+        LOGGER.info("🎛️ Building controls...")
         controls = self._build_controls()
         main_layout.addLayout(controls)
 
+        LOGGER.info("📝 Creating status label...")
         self.status_label = QLabel("הזן סימבולים מופרדים בפסיקים ולחץ נתח")
         self.status_label.setStyleSheet("color: #cbd5f5; font-weight: 500;")
         main_layout.addWidget(self.status_label)
@@ -480,16 +527,20 @@ class AnalysisWindow(QMainWindow):
         self.results_layout.setSpacing(14)
         self.results_layout.addStretch(1)
 
+        LOGGER.info("📜 Creating scroll area...")
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.results_container)
         scroll.setStyleSheet("QScrollArea { border: none; }")
         main_layout.addWidget(scroll, 1)
 
+        LOGGER.info("⏰ Setting up session timer...")
         self._session_timer = QTimer(self)
         self._session_timer.timeout.connect(self._refresh_session_status)
         self._session_timer.start(60000)
         self._refresh_session_status()
+        
+        LOGGER.info("✅ AnalysisWindow initialized successfully")
 
     def _build_hero(self) -> QFrame:
         frame = QFrame()
@@ -565,61 +616,113 @@ class AnalysisWindow(QMainWindow):
         )
 
     def _trigger_analysis(self) -> None:
-        if self._thread and self._thread.isRunning():
+        LOGGER.info("🎯 Analysis triggered")
+        
+        # Check if analysis is already running
+        if self._thread is not None and self._thread.isRunning():
+            LOGGER.warning("⚠️ Analysis already running, ignoring request")
             return
+        
+        # Clean up old thread if it exists but isn't running
+        if self._thread is not None:
+            LOGGER.info("🧹 Cleaning up old thread...")
+            self._thread = None
+            self._worker = None
 
         raw_text = self.symbol_input.text()
+        LOGGER.info("📝 Input text: %s", raw_text)
+        
         symbols = parse_symbols(raw_text)
         if not symbols:
+            LOGGER.warning("⚠️ No valid symbols parsed")
             self.status_label.setText("אנא הזן לפחות סימבול אחד חוקי.")
             self.status_label.setStyleSheet("color: #f87171; font-weight: 600;")
             return
 
+        LOGGER.info("✅ Parsed symbols: %s", symbols)
         self.status_label.setText("מריץ ניתוח...")
         self.status_label.setStyleSheet("color: #38bdf8; font-weight: 600;")
         self.analyze_button.setEnabled(False)
         self.symbol_input.setEnabled(False)
 
+        LOGGER.info("🧵 Creating worker thread...")
         self._thread = QThread()
         self._worker = AnalysisWorker(symbols)
         self._worker.moveToThread(self._thread)
 
+        LOGGER.info("🔗 Connecting signals...")
         self._thread.started.connect(self._worker.run)
+        
+        # Connect result handlers first
         self._worker.finished.connect(self._handle_results)
-        self._worker.finished.connect(self._thread.quit)
-        self._worker.finished.connect(self._worker.deleteLater)
         self._worker.failed.connect(self._handle_error)
-        self._worker.failed.connect(self._thread.quit)
+        
+        # Then connect cleanup handlers
+        self._worker.finished.connect(self._worker.deleteLater)
         self._worker.failed.connect(self._worker.deleteLater)
+        
+        # Connect thread quit and cleanup
+        self._worker.finished.connect(self._thread.quit)
+        self._worker.failed.connect(self._thread.quit)
         self._thread.finished.connect(self._thread.deleteLater)
+        
+        LOGGER.info("✅ All signals connected")
 
+        LOGGER.info("▶️ Starting thread...")
         self._thread.start()
+        LOGGER.info("✅ Thread started successfully")
 
     @Slot(list)
     def _handle_results(self, results: List[Dict[str, Any]]) -> None:
-        self._reset_controls()
-        if not results:
-            self.status_label.setText("לא התקבלו תוצאות. ודא שהסימבולים נכונים ושוב נסה.")
-            self.status_label.setStyleSheet("color: #fbbf24; font-weight: 600;")
-            self._clear_results()
-            return
+        LOGGER.info("📥 Received results callback - %d results", len(results))
+        
+        try:
+            LOGGER.info("🔄 Starting to reset controls...")
+            self._reset_controls()
+            LOGGER.info("✅ Controls reset completed")
+            
+            if not results:
+                LOGGER.warning("⚠️ No results received")
+                self.status_label.setText("לא התקבלו תוצאות. ודא שהסימבולים נכונים ושוב נסה.")
+                self.status_label.setStyleSheet("color: #fbbf24; font-weight: 600;")
+                self._clear_results()
+                return
 
-        self.status_label.setText("הניתוח הושלם בהצלחה.")
-        self.status_label.setStyleSheet("color: #4ade80; font-weight: 600;")
-        self._populate_results(results)
+            LOGGER.info("✅ Updating status label...")
+            self.status_label.setText("הניתוח הושלם בהצלחה.")
+            self.status_label.setStyleSheet("color: #4ade80; font-weight: 600;")
+            
+            LOGGER.info("📊 Populating UI with %d results...", len(results))
+            self._populate_results(results)
+            LOGGER.info("✅ UI updated successfully")
+            
+        except Exception as e:
+            LOGGER.exception("❌ Error in _handle_results: %s", e)
+            self.status_label.setText(f"שגיאה בעדכון התצוגה: {str(e)}")
+            self.status_label.setStyleSheet("color: #f87171; font-weight: 600;")
 
     @Slot(str)
     def _handle_error(self, message: str) -> None:
+        LOGGER.error("❌ Error callback received: %s", message[:200])
         self._reset_controls()
         self.status_label.setText(f"אירעה שגיאה במהלך הניתוח: {message}")
         self.status_label.setStyleSheet("color: #f87171; font-weight: 600;")
         self._clear_results()
 
     def _reset_controls(self) -> None:
-        self.analyze_button.setEnabled(True)
-        self.symbol_input.setEnabled(True)
-        self._thread = None
-        self._worker = None
+        LOGGER.info("🔄 Resetting controls...")
+        try:
+            LOGGER.info("  🔓 Re-enabling analyze button...")
+            self.analyze_button.setEnabled(True)
+            LOGGER.info("  🔓 Re-enabling symbol input...")
+            self.symbol_input.setEnabled(True)
+            LOGGER.info("  🧹 Clearing thread reference...")
+            # Don't clear immediately - let Qt handle cleanup via deleteLater
+            # self._thread = None
+            # self._worker = None
+            LOGGER.info("✅ Controls reset")
+        except Exception as e:
+            LOGGER.exception("❌ Error in _reset_controls: %s", e)
 
     def _clear_results(self) -> None:
         while self.results_layout.count() > 1:
@@ -629,26 +732,71 @@ class AnalysisWindow(QMainWindow):
                 widget.deleteLater()
 
     def _populate_results(self, results: List[Dict[str, Any]]) -> None:
+        LOGGER.info("🗑️ Clearing previous results...")
         self._clear_results()
-        for result in results:
-            card = ResultCard(result)
-            self.results_layout.insertWidget(self.results_layout.count() - 1, card)
+        LOGGER.info("✅ Previous results cleared")
+        
+        LOGGER.info("🃏 Creating result cards...")
+        for i, result in enumerate(results):
+            try:
+                LOGGER.info("📇 Creating card %d/%d for symbol: %s", i+1, len(results), result.get('symbol'))
+                card = ResultCard(result)
+                self.results_layout.insertWidget(self.results_layout.count() - 1, card)
+                LOGGER.info("✅ Card %d added to layout", i+1)
+            except Exception as e:
+                LOGGER.exception("❌ Error creating card %d: %s", i+1, e)
+        
+        LOGGER.info("✅ All cards created successfully")
 
     def closeEvent(self, event) -> None:  # pragma: no cover - GUI cleanup
+        LOGGER.info("🚪 Close event triggered")
+        
+        if self._worker:
+            LOGGER.info("🛑 Stopping worker...")
+            self._worker.stop()
+        
         if self._thread and self._thread.isRunning():
+            LOGGER.info("⏹️ Thread is running, requesting quit...")
             self._thread.quit()
-            self._thread.wait(2000)
+            
+            LOGGER.info("⏳ Waiting for thread to finish (max 3 seconds)...")
+            if self._thread.wait(3000):
+                LOGGER.info("✅ Thread finished cleanly")
+            else:
+                LOGGER.warning("⚠️ Thread did not finish, terminating...")
+                self._thread.terminate()
+                LOGGER.info("🔨 Thread terminated")
+        else:
+            LOGGER.info("✅ No running thread to stop")
+        
+        LOGGER.info("👋 Closing application...")
         super().closeEvent(event)
 
 
 def main() -> int:
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    LOGGER.info("=" * 60)
+    LOGGER.info("🚀 Stockagents Desktop Application Starting...")
+    LOGGER.info("=" * 60)
+    
+    # High DPI scaling is enabled by default in Qt 6
+    LOGGER.info("📱 Creating QApplication...")
     app = QApplication(sys.argv)
+    
+    LOGGER.info("🪟 Creating main window...")
     window = AnalysisWindow()
+    
+    LOGGER.info("👁️ Showing window...")
     window.show()
-    return app.exec()
+    
+    LOGGER.info("🎬 Starting event loop...")
+    exit_code = app.exec()
+    
+    LOGGER.info("=" * 60)
+    LOGGER.info("👋 Application exited with code: %d", exit_code)
+    LOGGER.info("=" * 60)
+    return exit_code
 
 
 if __name__ == "__main__":
+    LOGGER.info("🎯 Running as main module")
     raise SystemExit(main())

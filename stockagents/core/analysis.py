@@ -151,16 +151,47 @@ def _extract_forecast(raw_response: str) -> Optional[str]:
     if not raw_response:
         return None
 
+    # Try multiple patterns to extract forecast
     patterns = [
-        r"^\s*-?\s*forecast[^:]*:\s*(.+)$",
-        r"^\s*-?\s*תחזית[^:]*:\s*(.+)$",
+        # Hebrew with colon
+        r"^\s*-?\s*\*?\*?תחזית\*?\*?[^:]*:\s*(.+)$",
+        # English with colon
+        r"^\s*-?\s*\*?\*?forecast\*?\*?[^:]*:\s*(.+)$",
+        # Hebrew with number prefix (1. תחזית:)
+        r"^\s*\d+\.\s*\*?\*?תחזית\*?\*?[^:]*:\s*(.+)$",
+        # English with number prefix
+        r"^\s*\d+\.\s*\*?\*?forecast\*?\*?[^:]*:\s*(.+)$",
+        # Look for common forecast indicators
+        r"(?:צפויה?|פוטנציאל|מגמה)[^\n]{10,200}",
+        r"(?:expected|potential|trend|bullish|bearish)[^\n]{10,200}",
     ]
 
     for pattern in patterns:
         match = re.search(pattern, raw_response, re.IGNORECASE | re.MULTILINE)
         if match:
-            forecast = match.group(1).strip()
-            return forecast if forecast else None
+            # Extract the matched text
+            if match.lastindex:  # If there's a capturing group
+                forecast = match.group(1).strip()
+            else:
+                forecast = match.group(0).strip()
+            
+            # Clean up the forecast
+            forecast = forecast.strip('*').strip()
+            
+            # Skip if it's too short or looks like a header
+            if len(forecast) > 10 and not forecast.endswith(':'):
+                return forecast
+    
+    # Last resort: try to find the first substantial sentence
+    lines = raw_response.split('\n')
+    for line in lines:
+        line = line.strip().strip('*').strip('-').strip()
+        if len(line) > 20 and not line.endswith(':') and not line.startswith('#'):
+            # Check if it contains forecast-like keywords
+            forecast_keywords = ['צפוי', 'עלי', 'ירידה', 'מגמה', 'פוטנציאל', 'expected', 'trend', 'potential']
+            if any(keyword in line.lower() for keyword in forecast_keywords):
+                return line
+    
     return None
 
 
@@ -270,8 +301,16 @@ def run_stock_analysis(
                 messages = local_client.beta.threads.messages.list(thread_id=thread.id)
                 response_text = _render_assistant_response(messages.data)
                 entry["response_text"] = response_text
+                
+                # Log the full response for debugging
+                LOGGER.info("Full assistant response for %s:\n%s", symbol, response_text[:500])
+                
                 entry["confidence_score"] = _extract_confidence_score(response_text)
                 entry["forecast"] = _extract_forecast(response_text)
+                
+                # Log what was extracted
+                LOGGER.info("Extracted for %s - Confidence: %s, Forecast: %s", 
+                           symbol, entry["confidence_score"], entry["forecast"])
         except Exception as exc:  # pragma: no cover - best-effort logging
             LOGGER.exception("An error occurred while processing %s", symbol)
             entry["error"] = str(exc)
