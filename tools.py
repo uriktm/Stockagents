@@ -361,8 +361,6 @@ def NewsAndBuzzTool(stock_symbol: str) -> Dict[str, object]:
                     articles = []
                 for article in articles:
                     add_article(article, "FMP")
-                if articles:
-                    break
             except (requests.RequestException, json.JSONDecodeError) as exc:
                 LOGGER.warning("Failed to fetch FMP articles for %s from %s: %s", stock_symbol, endpoint, exc)
 
