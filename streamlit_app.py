@@ -699,8 +699,10 @@ if "status_message" not in st.session_state:
     st.session_state["status_message"] = ""
 if "status_level" not in st.session_state:
     st.session_state["status_level"] = "info"
-if "show_legend" not in st.session_state:
-    st.session_state["show_legend"] = False
+if "analysis_in_progress" not in st.session_state:
+    st.session_state["analysis_in_progress"] = False
+if "analysis_pending_symbols" not in st.session_state:
+    st.session_state["analysis_pending_symbols"] = None
 
 status_text, status_color = _market_session_status()
 hero_html = f"""
@@ -730,96 +732,6 @@ hero_html = f"""
 """
 st.markdown(hero_html, unsafe_allow_html=True)
 
-if st.button("📖 מדריך למדדים ומונחים", key="legend_button", help="לחצו להצגת מדריך המדדים"):
-    st.session_state["show_legend"] = True
-
-if st.session_state.get("show_legend"):
-    st.markdown(
-        """
-        <style>
-        .legend-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.82);
-            z-index: 9998;
-        }
-        .legend-modal {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: min(680px, 92%);
-            max-height: 80vh;
-            overflow-y: auto;
-            background: #0b1120;
-            border: 1px solid #1f2937;
-            border-radius: 16px;
-            padding: 28px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-            direction: rtl;
-            text-align: right;
-            color: #e5e7eb;
-            z-index: 9999;
-        }
-        .legend-close-wrapper {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-        }
-        .legend-close-wrapper button {
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            font-size: 20px;
-            color: #fca5a5;
-            padding: 0;
-        }
-        .legend-close-wrapper button:hover {
-            color: #f87171;
-        }
-        </style>
-        <div class='legend-overlay'></div>
-        <div class='legend-modal'>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<div class='legend-close-wrapper'>", unsafe_allow_html=True)
-    close_clicked = st.button("✕", key="legend_close_button")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown(
-        """
-            <h3 style='margin-top:0;'>מדריך למדדים ומונחים</h3>
-            <h4 style='color:#d1d5db;'>מדדי חדשות וסנטימנט</h4>
-            <ul style='padding-right:18px; line-height:1.7; color:#cbd5f5;'>
-                <li><strong>ציון סנטימנט</strong>: ציון בין -1 ל-1 המבטא את הטון הכללי של החדשות.<br><small>-1 עד -0.3 שלילי מאוד · -0.3 עד 0 שלילי קל · 0 עד 0.3 חיובי קל · 0.3 עד 1 חיובי מאוד</small></li>
-                <li><strong>Buzz Factor (חשיפה תקשורתית)</strong>: מספר הכתבות ביחס לממוצע.<br><small>< 1.0 חשיפה נמוכה · 1.0–2.0 נורמלי · > 2.0 חשיפה גבוהה</small></li>
-            </ul>
-            <h4 style='color:#d1d5db;'>מדדים טכניים</h4>
-            <ul style='padding-right:18px; line-height:1.7; color:#cbd5f5;'>
-                <li><strong>RSI (Relative Strength Index)</strong>: מדד כוח יחסי (0-100).<br><small>< 30 מכירה יתר — פוטנציאל לעלייה · 30–70 טווח נורמלי · > 70 קנייה יתר — פוטנציאל לירידה</small></li>
-                <li><strong>MACD Crossover</strong>: אות מומנטום (Bullish / Bearish / No Crossover).</li>
-                <li><strong>נפח מסחר</strong>: יחס הנפח היומי לממוצע.<br><small>< 1.0 נמוך · 1.0–1.5 נורמלי · > 2.0 גבוה מאוד — עניין מוגבר</small></li>
-            </ul>
-            <h4 style='color:#d1d5db;'>ציון ביטחון</h4>
-            <ul style='padding-right:18px; line-height:1.7; color:#cbd5f5;'>
-                <li>1–3 ביטחון נמוך מאוד</li>
-                <li>4–6 ביטחון בינוני</li>
-                <li>7–8 ביטחון גבוה</li>
-                <li>9–10 ביטחון גבוה מאוד</li>
-            </ul>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if close_clicked:
-        st.session_state["show_legend"] = False
-        st.experimental_rerun()
 
 st.markdown(
     """
@@ -834,11 +746,11 @@ st.markdown(
 
 input_description = "הזן רשימת מניות מופרדות בפסיק"
 symbols_input = st.text_input(input_description, placeholder="AAPL,MSFT,NVDA")
-trigger = st.button("נתח")
+trigger = st.button("נתח", disabled=st.session_state["analysis_in_progress"])
 status_placeholder = st.empty()
 results_container = st.container()
 
-if trigger:
+if trigger and not st.session_state["analysis_in_progress"]:
     st.session_state["analysis_results"] = None
     st.session_state["analysis_error"] = None
     st.session_state["status_message"] = ""
@@ -846,16 +758,38 @@ if trigger:
     symbols = _parse_symbols(symbols_input)
     if not symbols:
         st.session_state["analysis_error"] = "נא להזין לפחות סמל בורסאי אחד תקף."
+        st.session_state["analysis_in_progress"] = False
+        st.session_state["analysis_pending_symbols"] = None
     else:
-        status_placeholder.info("מנתח מניות... זה עשוי לקחת מספר דקות...")
+        st.session_state["analysis_in_progress"] = True
+        st.session_state["analysis_pending_symbols"] = symbols
+        st.session_state["status_message"] = "מנתח מניות... זה עשוי לקחת מספר דקות..."
+        st.session_state["status_level"] = "info"
+        st.rerun()
+
+pending_symbols = st.session_state.get("analysis_pending_symbols")
+if st.session_state["analysis_in_progress"] and pending_symbols:
+    status_placeholder.info("מנתח מניות... זה עשוי לקחת מספר דקות...")
+    results = None
+    try:
         with st.spinner("מנתח מניות... זה עשוי לקחת מספר דקות..."):
-            results = run_stock_analysis(symbols)
+            results = run_stock_analysis(pending_symbols)
+    except Exception as exc:  # pragma: no cover - best-effort UI feedback
+        st.session_state["analysis_error"] = str(exc)
+        st.session_state["status_message"] = "הניתוח נכשל."
+        st.session_state["status_level"] = "error"
+    else:
         st.session_state["status_message"] = "הניתוח הושלם."
         st.session_state["status_level"] = "success"
         if not results:
             st.session_state["analysis_error"] = "לא התקבלו תוצאות ניתוח."
+            st.session_state["analysis_results"] = None
         else:
+            st.session_state["analysis_error"] = None
             st.session_state["analysis_results"] = results
+    finally:
+        st.session_state["analysis_in_progress"] = False
+        st.session_state["analysis_pending_symbols"] = None
 
 message = st.session_state.get("status_message")
 level = st.session_state.get("status_level", "info")
