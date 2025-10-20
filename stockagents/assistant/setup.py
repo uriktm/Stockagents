@@ -7,6 +7,7 @@ from typing import Any, Dict
 from openai import OpenAI
 
 from stockagents.tools import (
+    AnalystRatingsTool,
     CorporateEventsTool,
     NewsAndBuzzTool,
     VolumeAndTechnicalsTool,
@@ -100,6 +101,7 @@ def create_assistant(client: OpenAI):
         instructions=_SYSTEM_PROMPT,
         model="gpt-4o-mini",
         tools=[
+            _build_function_tool_schema(AnalystRatingsTool),
             _build_function_tool_schema(NewsAndBuzzTool),
             _build_function_tool_schema(VolumeAndTechnicalsTool),
             _build_function_tool_schema(CorporateEventsTool),
