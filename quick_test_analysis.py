@@ -6,12 +6,16 @@ import sys
 from pathlib import Path
 
 # Setup logging to see everything
+# Ensure logs directory exists
+logs_dir = Path(__file__).parent / 'logs'
+logs_dir.mkdir(exist_ok=True)
+
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('quick_test.log', encoding='utf-8', mode='w')
+        logging.FileHandler(logs_dir / 'quick_test.log', encoding='utf-8', mode='w')
     ]
 )
 
@@ -59,8 +63,8 @@ if __name__ == "__main__":
         
         print("\n" + "=" * 60)
         print("✅ Analysis complete!")
-        print(f"📄 Full logs saved to: quick_test.log")
-        print(f"📄 Detailed logs in: detailed_analysis.log")
+        print(f"📄 Full logs saved to: logs/quick_test.log")
+        print(f"📄 Detailed logs in: logs/detailed_analysis.log")
         print("=" * 60)
         
     except Exception as e:

@@ -1,3 +1,24 @@
 __pycache__/
 *.pyc
-run_history.log
+
+# Logs directory
+logs/
+*.log
+
+# Virtual environment
+.venv/
+venv/
+
+# Environment variables (contains API keys)
+.env
+
+# Test reports
+reports/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/

@@ -21,12 +21,15 @@ from stockagents.tools import (
 )
 
 LOGGER = logging.getLogger(__name__)
-LOG_FILE_PATH = Path(__file__).resolve().parent.parent.parent / "run_history.log"
-DETAILED_LOG_PATH = Path(__file__).resolve().parent.parent.parent / "detailed_analysis.log"
+LOG_FILE_PATH = Path(__file__).resolve().parent.parent.parent / "logs" / "run_history.log"
+DETAILED_LOG_PATH = Path(__file__).resolve().parent.parent.parent / "logs" / "detailed_analysis.log"
 
 # Configure detailed file logging
 def _setup_detailed_logging():
     """Setup detailed logging to file with full debug information."""
+    # Ensure logs directory exists
+    DETAILED_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    
     file_handler = logging.FileHandler(DETAILED_LOG_PATH, encoding='utf-8')
     file_handler.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
@@ -256,6 +259,9 @@ def _append_run_log(entry: Dict[str, object]) -> None:
     ]
 
     try:
+        # Ensure logs directory exists
+        LOG_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        
         with LOG_FILE_PATH.open("a", encoding="utf-8") as log_file:
             log_file.write("\n".join(log_lines) + "\n")
     except OSError:

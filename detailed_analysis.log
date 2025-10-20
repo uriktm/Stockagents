@@ -126,3 +126,92 @@
 2025-10-20 00:48:25,478 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 7.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
 2025-10-20 00:48:25,478 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #5
 2025-10-20 00:48:25,478 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for IDYA - Confidence: 7.0, Forecast: צפויה עלייה במחיר המניה בשל סנטימנט חיובי חזק (0.8) ונפח מסחר הגבוה ב-280% מהממוצע, למרות שה-RSI מתקרב ל-70 (67.84).
+2025-10-20 12:52:03,347 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing NVDA
+2025-10-20 12:52:11,434 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_1DhcUKFmHglkxaygDcbcM0rN requested tool NewsAndBuzzTool
+2025-10-20 12:52:14,713 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 12:52:14,714 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_1DhcUKFmHglkxaygDcbcM0rN requested tool VolumeAndTechnicalsTool
+2025-10-20 12:52:15,268 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 12:52:15,269 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_1DhcUKFmHglkxaygDcbcM0rN requested tool CorporateEventsTool
+2025-10-20 12:52:16,745 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 12:52:25,767 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_1DhcUKFmHglkxaygDcbcM0rN reached terminal status: completed
+2025-10-20 12:52:26,052 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for NVDA:
+### תחזית
+צפויה מגמה חיובית עבור מניות NVDA במידה וימשך הסנטימנט החיובי מהחדשות החיוביות והעדכון של HSBC להמלצה "קנייה" תוך עליית התחזיות למחיר היעד ל-$320. עם זאת, יש לקחת בחשבון את המומנטום הבארי בניתוח הטכני.
+
+### ציון ביטחון
+ציון ביטחון: 6/10 - ישנם אינדיקטורים חיוביים אך המומנטום טכני אינו תומך בכך.
+
+### הסבר סיבתי
+- **סנטימנט חיובי חזק (0.8)**: ישנן חדשות חיוביות המצביעות על פוטנציאל צמיחה, כולל המלצה "קנייה" ותחזיות שיווק חיוביות.
+- **נפח מסחר**: ספיקה של 0.93, מה שמעיד על פעילות נמוכה יח
+2025-10-20 12:52:26,053 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 6.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 12:52:26,053 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #5
+2025-10-20 12:52:26,054 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for NVDA - Confidence: 6.0, Forecast: צפויה מגמה חיובית עבור מניות NVDA במידה וימשך הסנטימנט החיובי מהחדשות החיוביות והעדכון של HSBC להמלצה "קנייה" תוך עליית התחזיות למחיר היעד ל-$320. עם זאת, יש לקחת בחשבון את המומנטום הבארי בניתוח הטכני.
+2025-10-20 13:00:38,839 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing INTC
+2025-10-20 13:00:43,993 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_1WG6baRXZGE7H69iTHnAD0cJ requested tool NewsAndBuzzTool
+2025-10-20 13:00:47,693 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 13:00:47,693 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_1WG6baRXZGE7H69iTHnAD0cJ requested tool VolumeAndTechnicalsTool
+2025-10-20 13:00:48,098 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 13:00:48,098 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_1WG6baRXZGE7H69iTHnAD0cJ requested tool CorporateEventsTool
+2025-10-20 13:00:49,635 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 13:01:02,357 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_1WG6baRXZGE7H69iTHnAD0cJ reached terminal status: completed
+2025-10-20 13:01:02,606 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for INTC:
+### תחזית
+על פניו, צפויה ירידה במחיר המניה INTC בעקבות נתוני RSI גבוהים (64.7), שהם קרובים לרמות ה-70, המצביעים על מומנטום חיובי אך גם על סיכון לתיקון. בנוסף, נרשמה חולשה במומנטום הטכני, כשהמספר יחסית גבוה לא מראה crossover חיובי במקביל. ישנן גם חדשות מעורבות, כאשר למרות השקת מעבד AI חדש, השוק התייחס בעיכוב לדירוגים שליליים שהושמעו על ידי בנק אמריקה בנוגע למניית אינטל.
+
+### ציון ביטחון
+ציון ביטחון: 6/10 - סנטימנט מעורב עם נתוני RSI גבוהים אך אין חוצה חיובי.
+
+### הסבר סיבתי
+- **Sentiment שלילי:**
+2025-10-20 13:01:02,607 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 6.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 13:01:02,609 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #5
+2025-10-20 13:01:02,609 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for INTC - Confidence: 6.0, Forecast: צפויה ירידה במחיר המניה INTC בעקבות נתוני RSI גבוהים (64.7), שהם קרובים לרמות ה-70, המצביעים על מומנטום חיובי אך גם על סיכון לתיקון. בנוסף, נרשמה חולשה במומנטום הטכני, כשהמספר יחסית גבוה לא מראה crossover חיובי במקביל. ישנן גם חדשות מעורבות, כאשר למרות הש
+2025-10-20 16:14:33,147 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing VHC
+2025-10-20 16:14:40,518 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_7UqbHNBRcTNc2z25FT4fzqoL requested tool NewsAndBuzzTool
+2025-10-20 16:14:41,808 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 16:14:41,808 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_7UqbHNBRcTNc2z25FT4fzqoL requested tool VolumeAndTechnicalsTool
+2025-10-20 16:14:42,170 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 16:14:42,170 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_7UqbHNBRcTNc2z25FT4fzqoL requested tool CorporateEventsTool
+2025-10-20 16:14:43,645 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 16:14:43,646 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_7UqbHNBRcTNc2z25FT4fzqoL requested tool AnalystRatingsTool
+2025-10-20 16:14:43,646 - stockagents.core.analysis - ERROR - [_wait_for_run_completion:82] - No handler registered for tool AnalystRatingsTool
+2025-10-20 16:14:52,480 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_7UqbHNBRcTNc2z25FT4fzqoL reached terminal status: completed
+2025-10-20 16:14:52,741 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for VHC:
+### ניתוח מניה: VHC
+
+1. **תחזית:**
+   - ירידה צפויה במחיר עקב RSI גבוה (77.01) למרות מומנטום חיובי עם MACD crossover וביקוש גבוהה עם נפח מסחר שזינק בכמעט 455%.
+
+2. **ציון ביטחון:**
+   - ציון ביטחון: 5/10 - הנתונים מעורבים: יש מומנטום חיובי אך RSI גבוה המצביע על סיכון לתיקון.
+
+3. **הסבר סיבתי:**
+   - **נפח מסחר:** זינוק של 455% בנפח מסחר, מעיד על עניין גובר במניה.
+   - **MACD:** המניה מציגה crossover חיובי, מה שמעיד על מומנטום עלייה.
+   - **RSI:** אך, ה-RSI הנוכחי (77.01) מעיד על רמות גבוהות מאוד
+2025-10-20 16:14:52,741 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 5.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 16:14:52,742 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #5
+2025-10-20 16:14:52,742 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for VHC - Confidence: 5.0, Forecast: צפויה במחיר עקב RSI גבוה (77.01) למרות מומנטום חיובי עם MACD crossover וביקוש גבוהה עם נפח מסחר שזינק בכמעט 455%.
+2025-10-20 19:46:04,306 - stockagents.core.analysis - INFO - [run_stock_analysis:322] - Analyzing GLD
+2025-10-20 19:46:15,114 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_f6vZSbkgv9XNTD6j2Wc4wMKG requested tool NewsAndBuzzTool
+2025-10-20 19:46:18,851 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool NewsAndBuzzTool completed
+2025-10-20 19:46:18,852 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_f6vZSbkgv9XNTD6j2Wc4wMKG requested tool VolumeAndTechnicalsTool
+2025-10-20 19:46:19,345 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool VolumeAndTechnicalsTool completed
+2025-10-20 19:46:19,345 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_f6vZSbkgv9XNTD6j2Wc4wMKG requested tool CorporateEventsTool
+2025-10-20 19:46:20,764 - stockagents.core.analysis - INFO - [_wait_for_run_completion:100] - Tool CorporateEventsTool completed
+2025-10-20 19:46:20,765 - stockagents.core.analysis - INFO - [_wait_for_run_completion:79] - Run run_f6vZSbkgv9XNTD6j2Wc4wMKG requested tool AnalystRatingsTool
+2025-10-20 19:46:20,765 - stockagents.core.analysis - ERROR - [_wait_for_run_completion:82] - No handler registered for tool AnalystRatingsTool
+2025-10-20 19:46:30,458 - stockagents.core.analysis - INFO - [_wait_for_run_completion:118] - Run run_f6vZSbkgv9XNTD6j2Wc4wMKG reached terminal status: completed
+2025-10-20 19:46:30,815 - stockagents.core.analysis - INFO - [run_stock_analysis:346] - Full assistant response for GLD:
+### תחזית
+צפויה עלייה במחיר של GLD בעקבות סנטימנט חיובי מאוד (0.9) ונדבך ייחודי המצביע על עלייה בנפח המסחר, כאשר GLD רושמת את הנפח הגבוה ביותר שלה מזה 12 שנים.
+
+### ציון ביטחון
+ציון ביטחון: 6/10 - למרות שהסנטימנט חיובי מאוד ונפח המסחר גבוה, ה-RSI עומד על 79.38, מה שמעיד על סיכון לתיקון.
+
+### הסבר סיבתי
+- **סנטימנט חיובי:** מדד הסנטימנט עומד על 0.9, מה שמעיד על התלהבות בשוק עם כותרות חיוביות כמו "Gold Hits Record High" ([קישור למאמר](https://finance.yahoo.com/news/gold-hits-record-high-ride-19000
+2025-10-20 19:46:30,815 - stockagents.core.analysis - INFO - [_extract_confidence_score:161] - Confidence score extracted: 6.0 (using pattern #2: 'ציון\s*ביטחון[^0-9]*([0-9]+(?:\.[0-9]+)?)')
+2025-10-20 19:46:30,816 - stockagents.core.analysis - INFO - [_extract_forecast:213] - Forecast extracted using pattern #5
+2025-10-20 19:46:30,816 - stockagents.core.analysis - INFO - [run_stock_analysis:352] - Extracted for GLD - Confidence: 6.0, Forecast: צפויה עלייה במחיר של GLD בעקבות סנטימנט חיובי מאוד (0.9) ונדבך ייחודי המצביע על עלייה בנפח המסחר, כאשר GLD רושמת את הנפח הגבוה ביותר שלה מזה 12 שנים.
