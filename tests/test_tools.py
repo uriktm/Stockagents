@@ -1,6 +1,11 @@
 """Manual smoke tests for Stockagents tool integrations."""
 
-from stockagents.tools import CorporateEventsTool, NewsAndBuzzTool, VolumeAndTechnicalsTool
+from stockagents.tools import (
+    CorporateEventsTool,
+    NewsAndBuzzTool,
+    SocialSentimentTool,
+    VolumeAndTechnicalsTool,
+)
 
 
 def run_all_tests() -> None:
@@ -28,6 +33,10 @@ def run_all_tests() -> None:
             print(f"  - {item.get('source')}: {item.get('count')} articles")
     else:
         print("No additional news sources were returned (fallback to NewsAPI only).")
+
+    print("\n--- Testing SocialSentimentTool ---")
+    msft_social = SocialSentimentTool("MSFT")
+    print(f"Social sentiment for MSFT: {msft_social}")
 
 
 if __name__ == "__main__":
