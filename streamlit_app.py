@@ -1,5 +1,8 @@
 import html
+import subprocess
+import sys
 from datetime import datetime, time
+from pathlib import Path
 from typing import Iterable
 from zoneinfo import ZoneInfo
 
@@ -307,6 +310,76 @@ def _build_card(result: dict) -> str:
         "</details>"
         "</div>"
     )
+
+
+ROOT_DIR = Path(__file__).resolve().parent
+
+_TEST_SUITES = [
+    {
+        "key": "all",
+        "label": "כל הבדיקות (pytest)",
+        "description": "מריץ את כל הבדיקות האוטומטיות בספריית tests לקבלת תמונת מצב מלאה.",
+        "command": [sys.executable, "-m", "pytest"],
+    },
+    {
+        "key": "tools",
+        "label": "בדיקות כלי האיסוף המשולבים",
+        "description": "בודק את שכבת התזמור של הכלים דרך tests/test_tools.py.",
+        "command": [sys.executable, "-m", "pytest", "tests/test_tools.py"],
+    },
+    {
+        "key": "analyst",
+        "label": "בדיקות AnalystRatingsTool",
+        "description": "ווידוא חישובי קונצנזוס ומחירי יעד (tests/test_analyst_ratings_tool.py).",
+        "command": [sys.executable, "-m", "pytest", "tests/test_analyst_ratings_tool.py"],
+    },
+    {
+        "key": "history",
+        "label": "בדיקות היסטוריית הריצות",
+        "description": "בדיקות שמאמתות את ניהול הלוגים והיסטוריית הריצות (tests/test_history.py).",
+        "command": [sys.executable, "-m", "pytest", "tests/test_history.py"],
+    },
+    {
+        "key": "social_unit",
+        "label": "בדיקות SocialSentimentTool",
+        "description": "בודק את שכבת הסנטימנט החברתי ברמת היחידה (tests/test_social_sentiment_tool.py).",
+        "command": [sys.executable, "-m", "pytest", "tests/test_social_sentiment_tool.py"],
+    },
+    {
+        "key": "social_integration",
+        "label": "בדיקות אינטגרציית סנטימנט חברתי",
+        "description": "הרצה מלאה מול ה-API (מדלג אוטומטית אם חסרים Credentials) דרך tests/test_social_sentiment_integration.py.",
+        "command": [sys.executable, "-m", "pytest", "tests/test_social_sentiment_integration.py"],
+    },
+    {
+        "key": "quick_script",
+        "label": "Quick Test Analysis Script",
+        "description": "סקריפט עומק שמפעיל run_stock_analysis עם לוגים מפורטים (quick_test_analysis.py).",
+        "command": [sys.executable, "quick_test_analysis.py"],
+    },
+    {
+        "key": "simple_script",
+        "label": "Simple Smoke Test",
+        "description": "בדיקת עשן בסיסית שמוודאת שהניתוח הבסיסי פועל (test_simple.py).",
+        "command": [sys.executable, "test_simple.py"],
+    },
+]
+
+
+def _run_test_suite(command: list[str]) -> tuple[int, str]:
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        cwd=str(ROOT_DIR),
+    )
+    output, _ = process.communicate()
+    return process.returncode, output
+
+
+def _format_command(command: list[str]) -> str:
+    return " ".join(f'"{part}"' if " " in part else part for part in command)
 
 
 st.set_page_config(page_title="Stockagents Dashboard", layout="wide")
@@ -703,110 +776,206 @@ if "analysis_in_progress" not in st.session_state:
     st.session_state["analysis_in_progress"] = False
 if "analysis_pending_symbols" not in st.session_state:
     st.session_state["analysis_pending_symbols"] = None
+if "test_results" not in st.session_state:
+    st.session_state["test_results"] = {}
+if "test_summary" not in st.session_state:
+    st.session_state["test_summary"] = None
 
-status_text, status_color = _market_session_status()
-hero_html = f"""
-<div class='hero-card'>
-    <div class='hero-card__text'>
-        <h1>ממשק ניתוח מניות - Stockagents</h1>
-        <p>
-            לוח הבקרה החכם שמרכז עבורך תחזיות, חדשות, ניתוחים טכניים ואירועים תאגידיים - הכל בעברית,
-            עם דגש על הדברים שבאמת חשוב לדעת לפני קבלת החלטה.
-        </p>
-        <div class='hero-chips'>
-            <span class='hero-chip'>מעקב חדשות בזמן אמת</span>
-            <span class='hero-chip'>איתותים טכניים</span>
-            <span class='hero-chip'>אירועים תאגידיים קרובים</span>
+analysis_tab, health_tab = st.tabs(["ניתוח מניות", "בריאות המערכת ובדיקות"])
+
+with analysis_tab:
+    status_text, status_color = _market_session_status()
+    hero_html = f"""
+    <div class='hero-card'>
+        <div class='hero-card__text'>
+            <h1>ממשק ניתוח מניות - Stockagents</h1>
+            <p>
+                לוח הבקרה החכם שמרכז עבורך תחזיות, חדשות, ניתוחים טכניים ואירועים תאגידיים - הכל בעברית,
+                עם דגש על הדברים שבאמת חשוב לדעת לפני קבלת החלטה.
+            </p>
+            <div class='hero-chips'>
+                <span class='hero-chip'>מעקב חדשות בזמן אמת</span>
+                <span class='hero-chip'>איתותים טכניים</span>
+                <span class='hero-chip'>אירועים תאגידיים קרובים</span>
+            </div>
+        </div>
+        <div class='hero-card__status'>
+            <div class='hero-card__status-label'>סטטוס שוק</div>
+            <div class='hero-card__status-chip' style='background:{status_color};'>
+                {html.escape(status_text)}
+            </div>
+            <div class='hero-card__status-note'>
+                בדוק את מצב השוק לפני ניתוח - חלק מהאיתותים עובדים טוב יותר בזמני מסחר פעילים.
+            </div>
         </div>
     </div>
-    <div class='hero-card__status'>
-        <div class='hero-card__status-label'>סטטוס שוק</div>
-        <div class='hero-card__status-chip' style='background:{status_color};'>
-            {html.escape(status_text)}
-        </div>
-        <div class='hero-card__status-note'>
-            בדוק את מצב השוק לפני ניתוח - חלק מהאיתותים עובדים טוב יותר בזמני מסחר פעילים.
-        </div>
-    </div>
-</div>
-"""
-st.markdown(hero_html, unsafe_allow_html=True)
-
-
-st.markdown(
     """
-    <div class='input-hint'>
-        <strong>איך להתחיל?</strong>
-        <span>הקלד סימולי מניות באנגלית, מופרדים בפסיק, לדוגמה: <code>AAPL, MSFT, NVDA</code>.</span>
-        <span>לחיצה על "נתח" תפעיל את הסוכן ותציג כרטיס תמציתי עם הסבר, מדדי סנטימנט וטכני וקישורים בולטים.</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+    st.markdown(hero_html, unsafe_allow_html=True)
 
-input_description = "הזן רשימת מניות מופרדות בפסיק"
-symbols_input = st.text_input(input_description, placeholder="AAPL,MSFT,NVDA")
-trigger = st.button("נתח", disabled=st.session_state["analysis_in_progress"])
-status_placeholder = st.empty()
-results_container = st.container()
+    st.markdown(
+        """
+        <div class='input-hint'>
+            <strong>איך להתחיל?</strong>
+            <span>הקלד סימולי מניות באנגלית, מופרדים בפסיק, לדוגמה: <code>AAPL, MSFT, NVDA</code>.</span>
+            <span>לחיצה על "נתח" תפעיל את הסוכן ותציג כרטיס תמציתי עם הסבר, מדדי סנטימנט וטכני וקישורים בולטים.</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-if trigger and not st.session_state["analysis_in_progress"]:
-    st.session_state["analysis_results"] = None
-    st.session_state["analysis_error"] = None
-    st.session_state["status_message"] = ""
-    st.session_state["status_level"] = "info"
-    symbols = parse_symbols(symbols_input)
-    if not symbols:
-        st.session_state["analysis_error"] = "נא להזין לפחות סמל בורסאי אחד תקף."
-        st.session_state["analysis_in_progress"] = False
-        st.session_state["analysis_pending_symbols"] = None
-    else:
-        st.session_state["analysis_in_progress"] = True
-        st.session_state["analysis_pending_symbols"] = symbols
-        st.session_state["status_message"] = "מנתח מניות... זה עשוי לקחת מספר דקות..."
+    input_description = "הזן רשימת מניות מופרדות בפסיק"
+    symbols_input = st.text_input(input_description, placeholder="AAPL,MSFT,NVDA")
+    trigger = st.button("נתח", disabled=st.session_state["analysis_in_progress"])
+    status_placeholder = st.empty()
+    results_container = st.container()
+
+    if trigger and not st.session_state["analysis_in_progress"]:
+        st.session_state["analysis_results"] = None
+        st.session_state["analysis_error"] = None
+        st.session_state["status_message"] = ""
         st.session_state["status_level"] = "info"
-        st.rerun()
-
-pending_symbols = st.session_state.get("analysis_pending_symbols")
-if st.session_state["analysis_in_progress"] and pending_symbols:
-    status_placeholder.info("מנתח מניות... זה עשוי לקחת מספר דקות...")
-    results = None
-    try:
-        with st.spinner("מנתח מניות... זה עשוי לקחת מספר דקות..."):
-            results = run_stock_analysis(pending_symbols)
-    except Exception as exc:  # pragma: no cover - best-effort UI feedback
-        st.session_state["analysis_error"] = str(exc)
-        st.session_state["status_message"] = "הניתוח נכשל."
-        st.session_state["status_level"] = "error"
-    else:
-        st.session_state["status_message"] = "הניתוח הושלם."
-        st.session_state["status_level"] = "success"
-        if not results:
-            st.session_state["analysis_error"] = "לא התקבלו תוצאות ניתוח."
-            st.session_state["analysis_results"] = None
+        symbols = parse_symbols(symbols_input)
+        if not symbols:
+            st.session_state["analysis_error"] = "נא להזין לפחות סמל בורסאי אחד תקף."
+            st.session_state["analysis_in_progress"] = False
+            st.session_state["analysis_pending_symbols"] = None
         else:
-            st.session_state["analysis_error"] = None
-            st.session_state["analysis_results"] = results
-    finally:
-        st.session_state["analysis_in_progress"] = False
-        st.session_state["analysis_pending_symbols"] = None
+            st.session_state["analysis_in_progress"] = True
+            st.session_state["analysis_pending_symbols"] = symbols
+            st.session_state["status_message"] = "מנתח מניות... זה עשוי לקחת מספר דקות..."
+            st.session_state["status_level"] = "info"
+            st.rerun()
 
-message = st.session_state.get("status_message")
-level = st.session_state.get("status_level", "info")
-if message:
-    getattr(status_placeholder, level)(message)
+    pending_symbols = st.session_state.get("analysis_pending_symbols")
+    if st.session_state["analysis_in_progress"] and pending_symbols:
+        status_placeholder.info("מנתח מניות... זה עשוי לקחת מספר דקות...")
+        results = None
+        try:
+            with st.spinner("מנתח מניות... זה עשוי לקחת מספר דקות..."):
+                results = run_stock_analysis(pending_symbols)
+        except Exception as exc:  # pragma: no cover - best-effort UI feedback
+            st.session_state["analysis_error"] = str(exc)
+            st.session_state["status_message"] = "הניתוח נכשל."
+            st.session_state["status_level"] = "error"
+        else:
+            st.session_state["status_message"] = "הניתוח הושלם."
+            st.session_state["status_level"] = "success"
+            if not results:
+                st.session_state["analysis_error"] = "לא התקבלו תוצאות ניתוח."
+                st.session_state["analysis_results"] = None
+            else:
+                st.session_state["analysis_error"] = None
+                st.session_state["analysis_results"] = results
+        finally:
+            st.session_state["analysis_in_progress"] = False
+            st.session_state["analysis_pending_symbols"] = None
 
-error_message = st.session_state.get("analysis_error")
-results = st.session_state.get("analysis_results")
+    message = st.session_state.get("status_message")
+    level = st.session_state.get("status_level", "info")
+    if message:
+        getattr(status_placeholder, level)(message)
 
-if error_message:
-    results_container.error(error_message)
-elif results:
-    for result in results:
-        if result.get("error"):
-            results_container.error(f"{result.get('symbol', '')}: {result['error']}")
-            continue
-        card_html = _build_card(result)
+    error_message = st.session_state.get("analysis_error")
+    results = st.session_state.get("analysis_results")
+
+    if error_message:
+        results_container.error(error_message)
+    elif results:
+        for result in results:
+            if result.get("error"):
+                results_container.error(f"{result.get('symbol', '')}: {result['error']}")
+                continue
+            card_html = _build_card(result)
         results_container.markdown(card_html, unsafe_allow_html=True)
-else:
-    results_container.info("הזן מניות ולחץ \"נתח\" כדי להתחיל.")
+    else:
+        results_container.info("הזן מניות ולחץ \"נתח\" כדי להתחיל.")
+
+
+with health_tab:
+    st.header("מרכז בריאות המערכת והבדיקות")
+    st.markdown(
+        """
+        מרכז זה מאפשר הפעלה ידנית של כלל הבדיקות על רכיבי Stockagents – בדיוק כפי שמתואר במסמך
+        <code>SYSTEM_FLOW</code>. ניתן להריץ כל חבילה בנפרד כדי לבודד תקלות, או להפעיל את כולן יחד לקבלת תמונת מצב מלאה.
+        """,
+        unsafe_allow_html=True,
+    )
+    st.caption("כל בדיקה רצה בסביבת העבודה הנוכחית ומדפיסה את פלט הקונסולה המלא שלה להלן.")
+
+    if st.button("הרץ את כל הבדיקות", key="run_all_tests"):
+        total = len(_TEST_SUITES)
+        passed = 0
+        results_state = dict(st.session_state["test_results"])
+        for suite in _TEST_SUITES:
+            with st.spinner(f"מפעיל {suite['label']}..."):
+                returncode, output = _run_test_suite(suite["command"])
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            results_state[suite["key"]] = {
+                "returncode": returncode,
+                "output": output,
+                "timestamp": timestamp,
+                "command": _format_command(suite["command"]),
+            }
+            if returncode == 0:
+                passed += 1
+        st.session_state["test_results"] = results_state
+        st.session_state["test_summary"] = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "total": total,
+            "passed": passed,
+        }
+
+    summary = st.session_state.get("test_summary")
+    if summary:
+        summary_message = (
+            f"עודכן לאחרונה ב-{summary['timestamp']} · {summary['passed']} מתוך {summary['total']} חבילות עברו בהצלחה"
+        )
+        if summary["passed"] == summary["total"]:
+            st.success(summary_message)
+        elif summary["passed"] == 0:
+            st.error(summary_message)
+        else:
+            st.warning(summary_message)
+
+    for suite in _TEST_SUITES:
+        suite_container = st.container()
+        with suite_container:
+            st.subheader(suite["label"])
+            st.markdown(suite["description"])
+            cols = st.columns([1, 4])
+            run_key = f"run_suite_{suite['key']}"
+            run_clicked = cols[0].button("הרץ", key=run_key)
+            cols[1].code(_format_command(suite["command"]), language="bash")
+
+            if run_clicked:
+                with st.spinner(f"מריץ {suite['label']}..."):
+                    returncode, output = _run_test_suite(suite["command"])
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                results_state = dict(st.session_state["test_results"])
+                results_state[suite["key"]] = {
+                    "returncode": returncode,
+                    "output": output,
+                    "timestamp": timestamp,
+                    "command": _format_command(suite["command"]),
+                }
+                st.session_state["test_results"] = results_state
+                st.session_state["test_summary"] = {
+                    "timestamp": timestamp,
+                    "total": len(_TEST_SUITES),
+                    "passed": sum(
+                        1
+                        for value in st.session_state["test_results"].values()
+                        if value.get("returncode") == 0
+                    ),
+                }
+
+            result = st.session_state["test_results"].get(suite["key"])
+            if result:
+                status_message = (
+                    f"✅ הבדיקה עברה ({result['timestamp']})"
+                    if result["returncode"] == 0
+                    else f"❌ הבדיקה נכשלה ({result['timestamp']})"
+                )
+                status_func = st.success if result["returncode"] == 0 else st.error
+                status_func(status_message)
+                st.code(result["output"] or "(ללא פלט)", language="bash")
