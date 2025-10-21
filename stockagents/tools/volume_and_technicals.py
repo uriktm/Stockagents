@@ -3,21 +3,53 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict
+from datetime import datetime
+from typing import Dict, Optional
 
 import yfinance as yf
 
 LOGGER = logging.getLogger(__name__)
 
 
+def _compute_rsi(close_series, period: int = 14) -> Optional[float]:
+    if close_series is None or close_series.empty or close_series.shape[0] <= period:
+        return None
+
+    delta = close_series.diff()
+    gains = delta.where(delta > 0, 0.0)
+    losses = -delta.where(delta < 0, 0.0)
+
+    avg_gain = gains.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
+    avg_loss = losses.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
+    if avg_gain.empty or avg_loss.empty:
+        return None
+
+    last_avg_gain = avg_gain.iloc[-1]
+    last_avg_loss = avg_loss.iloc[-1]
+    if last_avg_loss == 0:
+        return 100.0
+    if last_avg_gain == 0:
+        return 0.0
+
+    rs = last_avg_gain / last_avg_loss
+    return float(round(100 - (100 / (1 + rs)), 2))
+
+
 def VolumeAndTechnicalsTool(stock_symbol: str) -> Dict[str, object]:
-    """Analyze volume, RSI, and MACD crossover information for ``stock_symbol``."""
+    """Analyze volume, RSI, MACD crossover, and intraday momentum for ``stock_symbol``."""
     result: Dict[str, object] = {
         "volume_spike_ratio": None,
         "technical_signal": "Insufficient Data",
         "rsi": None,
         "macd_signal_status": "Unavailable",
         "strength": 0.0,
+        "intraday": {
+            "last_price": None,
+            "change_percent": None,
+            "short_term_rsi": None,
+            "volume_ratio": None,
+            "last_update": None,
+        },
     }
 
     if not stock_symbol or not stock_symbol.strip():
@@ -68,23 +100,9 @@ def VolumeAndTechnicalsTool(stock_symbol: str) -> Dict[str, object]:
         if close.shape[0] < 15:
             return result
 
-        delta = close.diff()
-        gains = delta.where(delta > 0, 0.0)
-        losses = -delta.where(delta < 0, 0.0)
-
-        avg_gain = gains.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
-        avg_loss = losses.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
-        if not avg_gain.empty and not avg_loss.empty:
-            last_avg_gain = avg_gain.iloc[-1]
-            last_avg_loss = avg_loss.iloc[-1]
-            if last_avg_loss == 0:
-                rsi_value = 100.0
-            elif last_avg_gain == 0:
-                rsi_value = 0.0
-            else:
-                rs = last_avg_gain / last_avg_loss
-                rsi_value = 100 - (100 / (1 + rs))
-            result["rsi"] = float(round(rsi_value, 2))
+        daily_rsi = _compute_rsi(close)
+        if daily_rsi is not None:
+            result["rsi"] = daily_rsi
 
         macd_fast = close.ewm(span=12, adjust=False).mean()
         macd_slow = close.ewm(span=26, adjust=False).mean()
@@ -141,6 +159,54 @@ def VolumeAndTechnicalsTool(stock_symbol: str) -> Dict[str, object]:
 
         if strength_components:
             result["strength"] = round(sum(strength_components) / len(strength_components), 2)
+
+        intraday_result = result["intraday"]
+        try:
+            intraday_history = ticker.history(period="7d", interval="30m")
+        except Exception as exc:
+            LOGGER.debug("Intraday fetch failed for %s: %s", stock_symbol, exc)
+            intraday_history = None
+
+        if intraday_history is not None and not intraday_history.empty:
+            intraday_history = intraday_history.dropna()
+            if not intraday_history.empty:
+                intraday_point = intraday_history.iloc[-1]
+                last_price = intraday_point.get("Close")
+                if last_price is not None:
+                    intraday_result["last_price"] = float(last_price)
+
+                timestamp = intraday_point.name
+                if isinstance(timestamp, datetime):
+                    intraday_result["last_update"] = timestamp.isoformat()
+                elif hasattr(timestamp, "to_pydatetime"):
+                    intraday_result["last_update"] = timestamp.to_pydatetime().isoformat()
+                else:
+                    intraday_result["last_update"] = str(timestamp)
+
+                daily_close = close
+                previous_close = None
+                if daily_close is not None and not daily_close.empty:
+                    if daily_close.shape[0] >= 2:
+                        previous_close = float(daily_close.iloc[-2])
+                    else:
+                        previous_close = float(daily_close.iloc[-1])
+
+                if previous_close and previous_close > 0 and last_price is not None:
+                    change_percent = ((float(last_price) - previous_close) / previous_close) * 100
+                    intraday_result["change_percent"] = float(round(change_percent, 2))
+
+                intraday_close = intraday_history.get("Close")
+                short_rsi = _compute_rsi(intraday_close, period=14)
+                if short_rsi is not None:
+                    intraday_result["short_term_rsi"] = short_rsi
+
+                intraday_volume = intraday_history.get("Volume")
+                if intraday_volume is not None and not intraday_volume.empty:
+                    recent_volume = intraday_volume.iloc[-1]
+                    lookback_intraday = intraday_volume.iloc[:-1].tail(20)
+                    average_intraday = lookback_intraday.mean()
+                    if average_intraday and average_intraday > 0:
+                        intraday_result["volume_ratio"] = float(round(recent_volume / average_intraday, 2))
 
         # Log the complete results for debugging
         LOGGER.info(

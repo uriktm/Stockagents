@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Quick test to analyze a single stock and see detailed logs."""
 
+import io
 import logging
 import sys
 from pathlib import Path
+
+# Force UTF-8 encoding for stdout on Windows
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Setup logging to see everything
 # Ensure logs directory exists

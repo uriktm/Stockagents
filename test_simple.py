@@ -1,9 +1,15 @@
+# -*- coding: utf-8 -*-
 """Simple test to debug the issue."""
 
-import sys
+import io
 import logging
+import sys
 import traceback
 from stockagents import run_stock_analysis, parse_symbols
+
+# Force UTF-8 encoding for stdout on Windows
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Enable detailed logging
 logging.basicConfig(

@@ -1,9 +1,10 @@
 import html
+import shutil
 import subprocess
 import sys
 from datetime import datetime, time
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
 import streamlit as st
@@ -156,7 +157,7 @@ def _forecast_tone(text: str) -> dict:
     return tone_styles[tone]
 
 
-def _build_card(result: dict) -> str:
+def _build_card(result: dict[str, object]) -> str:
     symbol = result.get("symbol", "")
     score_display, numeric_score = _format_score(result.get("confidence_score"))
     forecast = _extract_forecast(result.get("response_text", "") or "") or "לא נמצאה תחזית מפורשת."
@@ -164,7 +165,8 @@ def _build_card(result: dict) -> str:
     color = _score_color(numeric_score)
     insights = result.get("tool_insights") or {}
     news = insights.get("news") or {}
-    technicals = insights.get("technicals") or {}
+    technicals = insights.get("technicals", {}) if insights else {}
+    intraday = technicals.get("intraday") if isinstance(technicals, dict) else {}
     events = insights.get("events") or {}
 
     tone = _forecast_tone(forecast)
@@ -265,6 +267,46 @@ def _build_card(result: dict) -> str:
             vol_text = "(נפח נמוך)"
         technical_points.append(f"נפח מסחר: x{vol_val} {vol_text}")
 
+    if isinstance(intraday, dict):
+        change_percent = intraday.get("change_percent")
+        if isinstance(change_percent, (int, float)):
+            direction = "⬆️" if change_percent > 0 else ("⬇️" if change_percent < 0 else "➡️")
+            technical_points.append(
+                f"{direction} שינוי יומי נוכחי: {round(float(change_percent), 2)}%"
+            )
+
+        short_term_rsi = intraday.get("short_term_rsi")
+        if isinstance(short_term_rsi, (int, float)):
+            short_rsi_text = ""
+            if short_term_rsi < 30:
+                short_rsi_text = "(מכירה יתר בטווח הקצר)"
+            elif short_term_rsi > 70:
+                short_rsi_text = "(קנייה יתר בטווח הקצר)"
+            else:
+                short_rsi_text = "(טווח נורמלי)"
+            technical_points.append(
+                f"RSI תוך-יומי: {round(float(short_term_rsi), 2)} {short_rsi_text}"
+            )
+
+        intraday_volume_ratio = intraday.get("volume_ratio")
+        if isinstance(intraday_volume_ratio, (int, float)) and intraday_volume_ratio > 0:
+            intraday_vol_text = ""
+            if intraday_volume_ratio > 2.0:
+                intraday_vol_text = "(נפח חריג בזמן אמת)"
+            elif intraday_volume_ratio >= 1.0:
+                intraday_vol_text = "(נפח מוגבר)"
+            else:
+                intraday_vol_text = "(נפח חלש)"
+            technical_points.append(
+                f"נפח תוך-יומי: x{round(float(intraday_volume_ratio), 2)} {intraday_vol_text}"
+            )
+
+    intraday_alert = None
+    if isinstance(intraday, dict):
+        change_percent = intraday.get("change_percent")
+        if isinstance(change_percent, (int, float)) and abs(change_percent) >= 3:
+            intraday_alert = f"התרעת שוק: המניה בתנועה {'חיובית' if change_percent > 0 else 'שלילית'} של {round(float(change_percent), 2)}% כרגע."
+
     event_points: list[str] = []
     earnings_date = events.get("upcoming_earnings_date")
     if isinstance(earnings_date, str) and earnings_date:
@@ -283,12 +325,20 @@ def _build_card(result: dict) -> str:
     )
 
     response_text = result.get("response_text") or "(אין ניתוח מפורט מהסוכן.)"
-    details = html.escape(response_text)
+    details_lines = [html.escape(response_text)] if response_text else []
+    if intraday_alert:
+        details_lines.insert(0, html.escape(intraday_alert))
+    details = "\n".join(details_lines)
 
     sections_html = f"<div class='analysis-card__sections'>{sections}</div>" if sections else ""
 
+    alert_banner = (
+        f"<div class='analysis-card__alert'>{html.escape(intraday_alert)}</div>" if intraday_alert else ""
+    )
+
     return (
         "<div class='analysis-card'>"
+        f"{alert_banner}"
         "<div class='analysis-card__header'>"
         "<div class='analysis-card__summary'>"
         f"<div class='analysis-card__symbol'>{html.escape(symbol)}</div>"
@@ -314,54 +364,90 @@ def _build_card(result: dict) -> str:
 
 ROOT_DIR = Path(__file__).resolve().parent
 
+PYTHON_RUNNER = ["poetry", "run", "python"] if shutil.which("poetry") else [sys.executable]
+
 _TEST_SUITES = [
     {
         "key": "all",
         "label": "כל הבדיקות (pytest)",
         "description": "מריץ את כל הבדיקות האוטומטיות בספריית tests לקבלת תמונת מצב מלאה.",
-        "command": [sys.executable, "-m", "pytest"],
-    },
-    {
-        "key": "tools",
-        "label": "בדיקות כלי האיסוף המשולבים",
-        "description": "בודק את שכבת התזמור של הכלים דרך tests/test_tools.py.",
-        "command": [sys.executable, "-m", "pytest", "tests/test_tools.py"],
+        "command": [*PYTHON_RUNNER, "-m", "pytest"],
+        "explanations": {
+            "test_analyst_ratings_tool.py": "✅ **כלי אנליסטים** - בודק שהכלי משלב נכון מחירי יעד ודירוגי אנליסטים, ומטפל בסימולים ריקים.",
+            "test_history.py": "✅ **מעקב היסטוריה** - מוודא שזיהוי כיוון תחזיות והשוואה למציאות עובדים, וששמירת תוצאות לאורך זמן תקינה.",
+            "test_social_sentiment_integration.py": "✅ **אינטגרציה חברתית** - בודק חיבור אמיתי ל-Reddit ו-X (מדלג אם אין credentials).",
+            "test_social_sentiment_tool.py": "✅ **סנטימנט חברתי** - מאמת שילוב נתונים מרשתות חברתיות ועמידות כשמקור אחד חסר.",
+            "test_volume_intraday_structure.py": "✅ **ניתוח תוך-יומי** (חדש!) - מוודא שהשדות החדשים לניתוח בזמן אמת (מחיר נוכחי, RSI קצר טווח, נפח) קיימים ותקינים."
+        }
     },
     {
         "key": "analyst",
         "label": "בדיקות AnalystRatingsTool",
         "description": "ווידוא חישובי קונצנזוס ומחירי יעד (tests/test_analyst_ratings_tool.py).",
-        "command": [sys.executable, "-m", "pytest", "tests/test_analyst_ratings_tool.py"],
+        "command": [*PYTHON_RUNNER, "-m", "pytest", "tests/test_analyst_ratings_tool.py"],
+        "explanations": {
+            "empty_symbol": "מוודא שהכלי מחזיר ערכי ברירת מחדל בטוחים כשלא מוזן סימול (מונע קריסות).",
+            "aggregates_data": "בודק שהכלי משלב נכון מחירי יעד, דירוגים (Buy/Sell/Hold), ופעולות אנליסטים עדכניות - מבטיח דיוק הקונצנזוס."
+        }
     },
     {
         "key": "history",
         "label": "בדיקות היסטוריית הריצות",
         "description": "בדיקות שמאמתות את ניהול הלוגים והיסטוריית הריצות (tests/test_history.py).",
-        "command": [sys.executable, "-m", "pytest", "tests/test_history.py"],
+        "command": [*PYTHON_RUNNER, "-m", "pytest", "tests/test_history.py"],
+        "explanations": {
+            "classify_forecast": "מזהה כיוון תחזית (עלייה/ירידה/מעורב) לפי מילות מפתח בעברית ואנגלית.",
+            "classify_percent": "מסווג שינוי מחיר (עלייה/ירידה/יציב) לפי סף - קובע האם תחזית פגעה במטרה.",
+            "evaluate_history": "מוסיף תוצאות השוואה (הצלחה/כישלון) ללוג - מעקב אחרי דיוק לאורך זמן.",
+            "parse_empty": "מאמת שהמערכת לא קורסת אם קובץ ההיסטוריה עדיין לא קיים."
+        }
     },
     {
         "key": "social_unit",
         "label": "בדיקות SocialSentimentTool",
         "description": "בודק את שכבת הסנטימנט החברתי ברמת היחידה (tests/test_social_sentiment_tool.py).",
-        "command": [sys.executable, "-m", "pytest", "tests/test_social_sentiment_tool.py"],
+        "command": [*PYTHON_RUNNER, "-m", "pytest", "tests/test_social_sentiment_tool.py"],
+        "explanations": {
+            "combines_sources": "בודק שהכלי משלב נכון נתונים מ-Reddit ו-X לציון buzz אחד - משקף את שני המקורות.",
+            "missing_sources": "מוודא עמידות - אם מקור אחד לא זמין, המערכת ממשיכה ומדווחת על השגיאה.",
+            "empty_symbol": "מאמת טיפול בסימול ריק - מחזיר תגובת ברירת מחדל במקום קריסה."
+        }
     },
     {
         "key": "social_integration",
         "label": "בדיקות אינטגרציית סנטימנט חברתי",
         "description": "הרצה מלאה מול ה-API (מדלג אוטומטית אם חסרים Credentials) דרך tests/test_social_sentiment_integration.py.",
-        "command": [sys.executable, "-m", "pytest", "tests/test_social_sentiment_integration.py"],
+        "command": [*PYTHON_RUNNER, "-m", "pytest", "tests/test_social_sentiment_integration.py"],
+        "explanations": {
+            "integration_runs": "בודק חיבור אמיתי ל-Reddit ו-X APIs (לא mock) - מאמת שהכלי מחזיר נתונים תקינים ממקורות חיים."
+        }
+    },
+    {
+        "key": "intraday",
+        "label": "בדיקת מבנה ניתוח תוך-יומי",
+        "description": "בדיקה ייעודית לתכונה החדשה של ניתוח בזמן אמת (tests/test_volume_intraday_structure.py).",
+        "command": [*PYTHON_RUNNER, "-m", "pytest", "tests/test_volume_intraday_structure.py"],
+        "explanations": {
+            "intraday_structure": "מוודא שהשדות החדשים לניתוח תוך-יומי (last_price, change_percent, short_term_rsi, volume_ratio, last_update) קיימים במבנה התשובה ומחזירים None כשאין נתונים - מבטיח שהתכונה החדשה לא תקרוס את המערכת."
+        }
     },
     {
         "key": "quick_script",
         "label": "Quick Test Analysis Script",
         "description": "סקריפט עומק שמפעיל run_stock_analysis עם לוגים מפורטים (quick_test_analysis.py).",
-        "command": [sys.executable, "quick_test_analysis.py"],
+        "command": [*PYTHON_RUNNER, "quick_test_analysis.py"],
+        "explanations": {
+            "full_flow": "מריץ ניתוח מלא על AAPL כולל חיבור ל-OpenAI, כלים (חדשות, טכני, אירועים), וסוכן אנליסט - בודק את כל הזרימה מקצה לקצה עם לוגים מפורטים."
+        }
     },
     {
         "key": "simple_script",
         "label": "Simple Smoke Test",
         "description": "בדיקת עשן בסיסית שמוודאת שהניתוח הבסיסי פועל (test_simple.py).",
-        "command": [sys.executable, "test_simple.py"],
+        "command": [*PYTHON_RUNNER, "test_simple.py"],
+        "explanations": {
+            "smoke_test": "בדיקת עשן מהירה - מאמתת שהמערכת יכולה לנתח מניה אחת מתחילה ועד סוף ללא קריסות או שגיאות חמורות."
+        }
     },
 ]
 
@@ -372,6 +458,8 @@ def _run_test_suite(command: list[str]) -> tuple[int, str]:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding='utf-8',
+        errors='replace',
         cwd=str(ROOT_DIR),
     )
     output, _ = process.communicate()
@@ -886,7 +974,7 @@ with analysis_tab:
                 results_container.error(f"{result.get('symbol', '')}: {result['error']}")
                 continue
             card_html = _build_card(result)
-        results_container.markdown(card_html, unsafe_allow_html=True)
+            results_container.markdown(card_html, unsafe_allow_html=True)
     else:
         results_container.info("הזן מניות ולחץ \"נתח\" כדי להתחיל.")
 
@@ -978,4 +1066,15 @@ with health_tab:
                 )
                 status_func = st.success if result["returncode"] == 0 else st.error
                 status_func(status_message)
+                
+                # Display explanations if available and tests passed
+                if result["returncode"] == 0 and suite.get("explanations"):
+                    with st.expander("📋 הסבר מפורט למה נבדק", expanded=True):
+                        explanations = suite["explanations"]
+                        if explanations:
+                            for test_name, explanation in explanations.items():
+                                st.markdown(f"**{test_name}:** {explanation}")
+                        else:
+                            st.info("אין הסברים זמינים לבדיקה זו.")
+                
                 st.code(result["output"] or "(ללא פלט)", language="bash")
