@@ -8,7 +8,7 @@
 ## 🚀 זרימה מלאה בקצרה
 
 ```
-משתמש → Streamlit/Desktop/CLI
+משתמש → Streamlit/CLI
     ↓
 parse_symbols("AAPL, TSLA") → ['AAPL', 'TSLA']
     ↓
@@ -55,7 +55,6 @@ create_assistant() → AlphaSynthesizerAgent (GPT-4o-mini)
 
 ### ממשקים
 - **`streamlit_app.py`** – Streamlit Web App
-- **`desktop_app.py`** – Qt Desktop App
 - **`main.py` + `stockagents/cli/main.py`** – CLI
 
 ---
